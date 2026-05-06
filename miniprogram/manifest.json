@@ -1,0 +1,22 @@
+{
+  "name": "美业SaaS",
+  "appid": "",
+  "description": "美业SaaS微信小程序",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "获取您的位置信息，用于显示附近门店"
+      }
+    }
+  }
+}
