@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -65,5 +65,25 @@ export class UserService {
   async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
     await this.userRepository.remove(user);
+  }
+
+  // 重置密码（忘记密码功能）
+  async resetPassword(dto: { username: string; newPassword: string; phone?: string }): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { username: dto.username } });
+    
+    if (!user) {
+      throw new NotFoundException('用户名不存在');
+    }
+    
+    // 如果提供了手机号，验证是否匹配
+    if (dto.phone && user.phone && user.phone !== dto.phone) {
+      throw new BadRequestException('手机号与注册手机号不一致');
+    }
+    
+    // 更新密码
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepository.save(user);
+    
+    return { message: '密码重置成功，请使用新密码登录' };
   }
 }

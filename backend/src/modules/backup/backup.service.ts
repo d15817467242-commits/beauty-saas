@@ -29,8 +29,16 @@ export class BackupService {
 
   // 创建备份配置
   async createConfig(dto: CreateBackupConfigDto): Promise<BackupConfig> {
-    const config = this.configRepository.create(dto);
-    return this.configRepository.save(config);
+    const data: any = { ...dto };
+    // 将数组字段转为JSON字符串存储
+    if (Array.isArray(data.includeTables)) {
+      data.includeTables = JSON.stringify(data.includeTables);
+    }
+    if (Array.isArray(data.excludeTables)) {
+      data.excludeTables = JSON.stringify(data.excludeTables);
+    }
+    const config = this.configRepository.create(data);
+    return this.configRepository.save(config as any);
   }
 
   // 更新备份配置
@@ -136,16 +144,20 @@ export class BackupService {
       let tables: string[] = [];
       let recordCount = 0;
       
+      // 解析config中的JSON字符串为数组
+      const configIncludeTables = config?.includeTables ? (typeof config.includeTables === 'string' ? JSON.parse(config.includeTables) : config.includeTables) : undefined;
+      const configExcludeTables = config?.excludeTables ? (typeof config.excludeTables === 'string' ? JSON.parse(config.excludeTables) : config.excludeTables) : undefined;
+
       if (format === BackupFormat.JSON) {
-        const result = await this.backupToJson(filepath, options?.tables || config?.includeTables, config?.excludeTables);
+        const result = await this.backupToJson(filepath, options?.tables || configIncludeTables, configExcludeTables);
         tables = result.tables;
         recordCount = result.recordCount;
       } else if (format === BackupFormat.SQL) {
-        const result = await this.backupToSql(filepath, options?.tables || config?.includeTables, config?.excludeTables);
+        const result = await this.backupToSql(filepath, options?.tables || configIncludeTables, configExcludeTables);
         tables = result.tables;
         recordCount = result.recordCount;
       } else {
-        const result = await this.backupToCsv(filepath, options?.tables || config?.includeTables, config?.excludeTables);
+        const result = await this.backupToCsv(filepath, options?.tables || configIncludeTables, configExcludeTables);
         tables = result.tables;
         recordCount = result.recordCount;
       }
@@ -156,7 +168,7 @@ export class BackupService {
       record.filename = filename;
       record.filepath = filepath;
       record.fileSize = stats.size;
-      record.tables = tables;
+      record.tables = JSON.stringify(tables);
       record.recordCount = recordCount;
       record.completedAt = new Date();
       record.duration = Math.floor((record.completedAt.getTime() - record.startedAt.getTime()) / 1000);

@@ -20,7 +20,7 @@
       </div>
 
       <!-- 登录表单 -->
-      <el-form v-if="!isRegister" :model="loginForm" :rules="loginRules" ref="loginFormRef" label-width="0" class="login-form">
+      <el-form v-if="pageMode === 'login'" :model="loginForm" :rules="loginRules" ref="loginFormRef" label-width="0" class="login-form">
         <el-form-item prop="username">
           <div class="input-wrapper">
             <span class="input-icon">📞</span>
@@ -42,14 +42,14 @@
           </button>
         </el-form-item>
         <div class="bottom-links">
-          <span @click="switchToRegister">注册账号</span>
+          <span @click="pageMode = 'register'">注册账号</span>
           <span class="link-divider">|</span>
-          <span>忘记密码</span>
+          <span @click="pageMode = 'forgot'">忘记密码</span>
         </div>
       </el-form>
 
       <!-- 注册表单 -->
-      <el-form v-else :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="0" class="login-form">
+      <el-form v-else-if="pageMode === 'register'" :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="0" class="login-form">
         <el-form-item prop="username">
           <div class="input-wrapper">
             <span class="input-icon">📞</span>
@@ -82,7 +82,46 @@
           </button>
         </el-form-item>
         <div class="bottom-links">
-          <span @click="switchToLogin">已有账号？立即登录</span>
+          <span @click="pageMode = 'login'">已有账号？立即登录</span>
+        </div>
+      </el-form>
+
+      <!-- 忘记密码表单 -->
+      <el-form v-else :model="forgotForm" :rules="forgotRules" ref="forgotFormRef" label-width="0" class="login-form">
+        <p class="form-desc">请输入用户名和新密码来重置密码</p>
+        <el-form-item prop="username">
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <el-input v-model="forgotForm.username" placeholder="请输入用户名" size="large" class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item prop="phone">
+          <div class="input-wrapper">
+            <span class="input-icon">📞</span>
+            <span class="phone-prefix">+86</span>
+            <el-input v-model="forgotForm.phone" placeholder="注册时的手机号（选填）" size="large" class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item prop="newPassword">
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <el-input v-model="forgotForm.newPassword" type="password" placeholder="请输入新密码" size="large" show-password class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item prop="confirmNewPassword">
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <el-input v-model="forgotForm.confirmNewPassword" type="password" placeholder="请确认新密码" size="large" show-password @keyup.enter="handleResetPassword" class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item>
+          <button type="button" class="login-btn" :disabled="loading" @click="handleResetPassword">
+            <span v-if="!loading">重置密码</span>
+            <span v-else>提交中...</span>
+          </button>
+        </el-form-item>
+        <div class="bottom-links">
+          <span @click="pageMode = 'login'">← 返回登录</span>
         </div>
       </el-form>
 
@@ -107,11 +146,13 @@ const router = useRouter()
 const userStore = useUserStore()
 const loginFormRef = ref<FormInstance>()
 const registerFormRef = ref<FormInstance>()
+const forgotFormRef = ref<FormInstance>()
 const loading = ref(false)
-const isRegister = ref(false)
+const pageMode = ref<'login' | 'register' | 'forgot'>('login')
 
 const loginForm = reactive({ username: '', password: '' })
 const registerForm = reactive({ username: '', password: '', confirmPassword: '', name: '', phone: '' })
+const forgotForm = reactive({ username: '', phone: '', newPassword: '', confirmNewPassword: '' })
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
@@ -134,8 +175,20 @@ const registerRules: FormRules = {
   name: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }]
 }
 
-const switchToRegister = () => { isRegister.value = true }
-const switchToLogin = () => { isRegister.value = false }
+const forgotRules: FormRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度6-20个字符', trigger: 'blur' }
+  ],
+  confirmNewPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: (_rule: any, value: string, callback: any) => { value !== forgotForm.newPassword ? callback(new Error('两次密码不一致')) : callback() }, trigger: 'blur' }
+  ]
+}
+
+const switchToRegister = () => { pageMode.value = 'register' }
+const switchToLogin = () => { pageMode.value = 'login' }
 
 const handleLogin = async () => {
   if (!loginFormRef.value) return
@@ -165,9 +218,28 @@ const handleRegister = async () => {
       try {
         const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: registerForm.username, password: registerForm.password, name: registerForm.name, phone: registerForm.phone || undefined }) })
         const data = await response.json()
-        if (response.ok) { ElMessage.success('注册成功，请登录'); isRegister.value = false; loginForm.username = registerForm.username }
+        if (response.ok) { ElMessage.success('注册成功，请登录'); pageMode.value = 'login'; loginForm.username = registerForm.username }
         else { ElMessage.error(data.message || '注册失败') }
       } catch (error) { ElMessage.error('注册失败，请检查网络') }
+      finally { loading.value = false }
+    }
+  })
+}
+
+const handleResetPassword = async () => {
+  if (!forgotFormRef.value) return
+  await forgotFormRef.value.validate(async (valid) => {
+    if (valid) {
+      loading.value = true
+      try {
+        const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: forgotForm.username, newPassword: forgotForm.newPassword, phone: forgotForm.phone || undefined }) })
+        const data = await response.json()
+        if (response.ok) {
+          ElMessage.success('密码重置成功，请使用新密码登录')
+          pageMode.value = 'login'
+          loginForm.username = forgotForm.username
+        } else { ElMessage.error(data.message || '重置失败') }
+      } catch (error) { ElMessage.error('重置失败，请检查网络') }
       finally { loading.value = false }
     }
   })
@@ -236,6 +308,13 @@ const handleRegister = async () => {
 .divider-diamond { color: #d4af37; font-size: 7px; line-height: 1; }
 
 .login-form { margin-top: 8px; }
+
+.form-desc {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 20px;
+}
 
 .input-wrapper {
   display: flex;

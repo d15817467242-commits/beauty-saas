@@ -382,6 +382,12 @@ const routes: RouteRecordRaw[] = [
         name: 'EmployeeService',
         component: () => import('@/views/EmployeeService.vue'),
         meta: { title: '员工服务项目' }
+      },
+      {
+        path: 'user-manage',
+        name: 'UserManage',
+        component: () => import('@/views/UserManage.vue'),
+        meta: { title: '用户管理' }
       }
     ]
   }

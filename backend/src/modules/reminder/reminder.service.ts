@@ -421,7 +421,7 @@ export class ReminderService {
     const memberCountCards = await this.memberCountCardRepository
       .createQueryBuilder('mcc')
       .leftJoinAndSelect('mcc.member', 'member')
-      .leftJoinAndSelect('mcc.countCardPackage', 'package')
+      .leftJoinAndSelect('mcc.package', 'package')
       .where('mcc.remainingCount > 0')
       .andWhere('mcc.expireTime IS NOT NULL')
       .andWhere('mcc.expireTime <= :thresholdDate', { thresholdDate })

@@ -26,11 +26,11 @@ export class ServiceService {
     // 确保 category 有默认值
     const data = {
       ...createServiceDto,
-      category: createServiceDto.category || 'other'
+      category: (createServiceDto.category || 'other') as ServiceCategory
     };
 
-    const service = this.serviceRepository.create(data);
-    return this.serviceRepository.save(service);
+    const service = this.serviceRepository.create(data as any);
+    return this.serviceRepository.save(service as any) as Promise<Service>;
   }
 
   async findAll(
@@ -146,8 +146,8 @@ export class ServiceService {
           }
         }
 
-        const service = this.serviceRepository.create(serviceDto);
-        await this.serviceRepository.save(service);
+        const service = this.serviceRepository.create(serviceDto as any);
+        await this.serviceRepository.save(service as any);
         success++;
       } catch (error) {
         errors.push(`第${i + 1}条: ${error.message}`);

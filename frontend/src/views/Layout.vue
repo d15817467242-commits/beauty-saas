@@ -133,6 +133,7 @@
           </template>
           <el-menu-item index="/param-settings">系统参数</el-menu-item>
           <el-menu-item index="/operation-log">操作日志</el-menu-item>
+          <el-menu-item index="/user-manage">用户管理</el-menu-item>
           <el-menu-item index="/backup">数据备份</el-menu-item>
           <el-menu-item index="/system-config">系统设置</el-menu-item>
         </el-sub-menu>

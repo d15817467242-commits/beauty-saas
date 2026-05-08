@@ -18,23 +18,23 @@ export class EmployeeController {
     return this.employeeService.findAll(status);
   }
 
-  @Get(':id')
+  @Get('detail/:id')
   findOne(@Param('id') id: string) {
     return this.employeeService.findOne(id);
   }
 
-  @Patch(':id')
+  @Patch('detail/:id')
   update(@Param('id') id: string, @Body() updateEmployeeDto: UpdateEmployeeDto) {
     return this.employeeService.update(id, updateEmployeeDto);
   }
 
-  @Delete(':id')
+  @Delete('detail/:id')
   remove(@Param('id') id: string) {
     return this.employeeService.remove(id);
   }
 
   // 提成相关API
-  @Patch(':id/commission')
+  @Patch('detail/:id/commission')
   updateCommission(
     @Param('id') id: string,
     @Body() body: { baseCommissionRate?: number; commissionRules?: any },
@@ -42,7 +42,7 @@ export class EmployeeController {
     return this.employeeService.updateCommission(id, body.baseCommissionRate, body.commissionRules);
   }
 
-  @Get(':id/commission-stats')
+  @Get('detail/:id/commission-stats')
   getCommissionStats(@Param('id') id: string) {
     return this.employeeService.getCommissionStats(id);
   }
