@@ -71,9 +71,9 @@ export class MemberService {
     return this.memberRepository.save(member);
   }
 
-  async recharge(id: string, amount: number): Promise<Member> {
+  async recharge(id: string, amount: number, bonus?: number): Promise<Member> {
     const member = await this.findOne(id);
-    member.balance = Number(member.balance) + amount;
+    member.balance = Number(member.balance) + amount + (bonus || 0);
     return this.memberRepository.save(member);
   }
 

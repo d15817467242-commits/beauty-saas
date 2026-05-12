@@ -376,7 +376,7 @@ export class MemberLevelService {
     if (!member) throw new NotFoundException('会员不存在');
 
     const levels = await this.levelRepository.find({
-      where: { isActive: true },
+      where: { isActive: '1' as any },
       order: { levelOrder: 'DESC' },
     });
 
@@ -411,7 +411,7 @@ export class MemberLevelService {
     if (!member) throw new NotFoundException('会员不存在');
 
     const levels = await this.levelRepository.find({
-      where: { isActive: true },
+      where: { isActive: '1' as any },
       order: { levelOrder: 'ASC' },
     });
 

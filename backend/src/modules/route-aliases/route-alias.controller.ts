@@ -447,8 +447,8 @@ export class MemberActionAliasController {
   constructor(private readonly memberService: MemberService) {}
 
   @Post('recharge')
-  recharge(@Body() body: { memberId: string; amount: number; paymentMethod?: string; remark?: string }) {
-    return this.memberService.recharge(body.memberId, body.amount);
+  recharge(@Body() body: { memberId: string; amount: number; bonus?: number; paymentMethod?: string; remark?: string }) {
+    return this.memberService.recharge(body.memberId, body.amount, body.bonus);
   }
 }
 

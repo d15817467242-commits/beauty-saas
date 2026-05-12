@@ -865,7 +865,7 @@ const searchMergeOrders = async () => {
       params.append('keyword', mergeKeyword.value)
     }
 
-    const data = await request.get(`/documents?${params.toString()}`)
+    const data = await request.get(`/cashier/documents?${params.toString()}`)
     mergeOrderList.value = data.data || data
   } catch (e) {
     ElMessage.error('加载订单失败')
@@ -884,7 +884,7 @@ const handleMergeOrders = async () => {
 
   mergeSubmitting.value = true
   try {
-    await request.post('/documents/merge', {
+    await request.post('/cashier/merge', {
       orderIds: selectedMergeOrders.value.map(o => o.id)
     })
     ElMessage.success('订单合并成功！')
