@@ -198,7 +198,8 @@ const activeTab = ref('businessHours')
 const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 const businessHours = ref<any[]>([])
-const config = ref({
+const config = ref<any>({
+  id: null,
   timeSlotInterval: 30,
   advanceBookingMinutes: 60,
   cancelAdvanceMinutes: 30,
@@ -210,6 +211,7 @@ const config = ref({
   sendReminder: true,
   reminderMinutes: 120,
   autoConfirm: true,
+  specialDays: [],
 })
 
 const specialDays = computed(() => config.value.specialDays || [])

@@ -1,12 +1,22 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
 import { DataSettingsService } from '../services/data-settings.service';
-import { Store } from '../entities/store.entity';
+import { Store } from '../../store/store.entity';
 import { Department } from '../entities/department.entity';
 import { Position } from '../entities/position.entity';
 import { ProductUnit } from '../entities/product-unit.entity';
 import { ProductSpec } from '../entities/product-spec.entity';
 import { PriceStrategy } from '../entities/price-strategy.entity';
 import { Warehouse } from '../entities/warehouse.entity';
+
+@Controller('data-settings')
+export class DataSettingsAliasController {
+  constructor(private readonly service: DataSettingsService) {}
+
+  @Get('stores')
+  getStoresAlias(): Promise<Store[]> {
+    return this.service.getStores();
+  }
+}
 
 @Controller()
 export class DataSettingsController {

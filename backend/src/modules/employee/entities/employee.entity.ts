@@ -14,6 +14,9 @@ export enum CommissionType {
 
 @Entity('employees')
 export class Employee extends BaseEntity {
+  @Column({ nullable: true, name: 'store_id', comment: '所属门店ID' })
+  storeId: string;
+
   @Column({ type: 'text', comment: '员工姓名' })
   name: string;
 

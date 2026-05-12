@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <span>员工管理</span>
-          <el-button type="primary" @click="handleAdd">新增员工</el-button>
+          <el-button type="primary" @click="handleAdd" v-if="userStore.canCreate">新增员工</el-button>
         </div>
       </template>
       <el-table :data="employeeList" v-loading="loading" stripe>
@@ -36,9 +36,10 @@
         </el-table-column>
         <el-table-column label="操作" width="280">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="warning" @click="handleCommission(row)">提成设置</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="handleEdit(row)" v-if="userStore.canEdit">编辑</el-button>
+            <el-button size="small" type="warning" @click="handleCommission(row)" v-if="userStore.isAdmin">提成设置</el-button>
+            <el-button size="small" type="info" @click="handleResetPassword(row)" v-if="userStore.canEdit">重置密码</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)" v-if="userStore.canDelete">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -105,15 +106,32 @@
         <el-button type="primary" :loading="commissionSubmitting" @click="handleCommissionSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 重置密码对话框 -->
+    <el-dialog v-model="resetPwdVisible" title="重置密码" width="400px">
+      <el-form :model="resetPwdForm" label-width="100px">
+        <el-form-item label="员工">
+          <span>{{ resetPwdForm.employeeName }}</span>
+        </el-form-item>
+        <el-form-item label="新密码" required>
+          <el-input v-model="resetPwdForm.newPassword" type="password" placeholder="请输入新密码" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="resetPwdVisible = false">取消</el-button>
+        <el-button type="primary" :loading="resetPwdSubmitting" @click="handleResetPwdSubmit">确认重置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+const userStore = useUserStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -140,6 +158,10 @@ const commissionForm = ref({
   serviceRules: [] as any[]
 })
 
+const resetPwdVisible = ref(false)
+const resetPwdSubmitting = ref(false)
+const resetPwdForm = ref({ employeeId: '', employeeName: '', newPassword: '' })
+
 const resetForm = () => {
   form.value = {
     name: '',
@@ -154,10 +176,7 @@ const resetForm = () => {
 const loadEmployees = async () => {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/employees`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    employeeList.value = await res.json()
+    employeeList.value = await request.get('/employees')
   } catch (e) {
     ElMessage.error('加载失败')
   } finally {
@@ -167,10 +186,7 @@ const loadEmployees = async () => {
 
 const loadServices = async () => {
   try {
-    const res = await fetch(`${API_BASE}/services`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    serviceList.value = await res.json()
+    serviceList.value = await request.get('/services')
   } catch (e) {
     console.error(e)
   }
@@ -219,16 +235,9 @@ const handleCommission = async (row: any) => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该员工吗？', '提示', { type: 'warning' })
-    const res = await fetch(`${API_BASE}/employees/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('删除成功')
-      loadEmployees()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await request.delete(`/employees/${row.id}`)
+    ElMessage.success('删除成功')
+    loadEmployees()
   } catch (e) {}
 }
 
@@ -239,24 +248,15 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    const url = isEdit.value ? `${API_BASE}/employees/${editId.value}` : `${API_BASE}/employees`
-    const method = isEdit.value ? 'PATCH' : 'POST'
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(form.value)
-    })
-    if (res.ok) {
-      ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
-      dialogVisible.value = false
-      loadEmployees()
+    if (isEdit.value) {
+      await request.patch(`/employees/${editId.value}`, form.value)
+      ElMessage.success('修改成功')
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/employees', form.value)
+      ElMessage.success('添加成功')
     }
+    dialogVisible.value = false
+    loadEmployees()
   } catch (e) {
     ElMessage.error('网络错误')
   } finally {
@@ -280,26 +280,13 @@ const handleCommissionSubmit = async () => {
       }
     }
     
-    const res = await fetch(`${API_BASE}/employees/${currentEmployee.value.id}/commission`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
+    await request.patch(`/employees/${currentEmployee.value.id}/commission`, {
         baseCommissionRate: commissionForm.value.baseCommissionRate,
         commissionRules
       })
-    })
-    
-    if (res.ok) {
       ElMessage.success('提成设置保存成功')
       commissionDialogVisible.value = false
       loadEmployees()
-    } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '保存失败')
-    }
   } catch (e) {
     ElMessage.error('网络错误')
   } finally {

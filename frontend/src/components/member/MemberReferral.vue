@@ -163,6 +163,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import request from '@/utils/request'
 
 const props = defineProps<{
   memberId: string
@@ -171,9 +172,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'viewMember', id: string): void
 }>()
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
 
 const memberInfo = ref<any>(null)
 const referrer = ref<any>(null)
@@ -207,32 +205,25 @@ const referralRules: FormRules = {
 
 const loadReferralData = async () => {
   if (!props.memberId) return
-  
   try {
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/referrals`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    const data = await request.get(`/members/${props.memberId}/referrals`)
     memberInfo.value = data.member
     referrer.value = data.referrer
     referrals.value = data.referrals || []
     stats.value = data.stats || stats.value
   } catch (e) {
-    console.error('加载推荐关系失败')
+    console.error('加载推荐关系失败', e)
   }
 }
 
 const loadRewards = async () => {
   if (!props.memberId) return
-  
   rewardsLoading.value = true
   try {
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/referral-rewards`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    rewards.value = await res.json()
+    const data = await request.get(`/members/${props.memberId}/referral-rewards`)
+    rewards.value = Array.isArray(data) ? data : []
   } catch (e) {
-    console.error('加载奖励记录失败')
+    console.error('加载奖励记录失败', e)
   } finally {
     rewardsLoading.value = false
   }
@@ -251,28 +242,15 @@ const submitReferral = async () => {
   if (!referralFormRef.value) return
   await referralFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
     referralSubmitting.value = true
     try {
-      const res = await fetch(`${API_BASE}/members/${props.memberId}/referrals`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(referralForm.value)
-      })
-      if (res.ok) {
-        ElMessage.success('邀请成功')
-        referralDialogVisible.value = false
-        loadReferralData()
-        loadRewards()
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '邀请失败')
-      }
+      await request.post(`/members/${props.memberId}/referrals`, referralForm.value)
+      ElMessage.success('邀请成功')
+      referralDialogVisible.value = false
+      loadReferralData()
+      loadRewards()
     } catch (e) {
-      ElMessage.error('网络错误')
+      console.error(e)
     } finally {
       referralSubmitting.value = false
     }

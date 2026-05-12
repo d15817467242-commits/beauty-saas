@@ -1,189 +1,91 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
-import { Store, StoreConfig, StoreStatus } from './store.entity';
-import { CreateStoreDto, UpdateStoreDto, QueryStoreDto } from './dto/store.dto';
+import { Repository, In } from 'typeorm';
+import { Store } from './store.entity';
+import { UserStore } from '../user/entities/user-store.entity';
+import { User } from '../user/user.entity';
+import { Member } from '../member/member.entity';
+import { Employee } from '../employee/entities/employee.entity';
 
 @Injectable()
 export class StoreService {
   constructor(
     @InjectRepository(Store)
     private storeRepository: Repository<Store>,
-    @InjectRepository(StoreConfig)
-    private storeConfigRepository: Repository<StoreConfig>,
+    @InjectRepository(UserStore)
+    private userStoreRepository: Repository<UserStore>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Member)
+    private memberRepository: Repository<Member>,
+    @InjectRepository(Employee)
+    private employeeRepository: Repository<Employee>,
   ) {}
 
-  // 创建门店
-  async create(dto: CreateStoreDto): Promise<Store> {
-    const store = this.storeRepository.create(dto);
-    return this.storeRepository.save(store);
-  }
+  async findAll(): Promise<any[]> {
+    const stores = await this.storeRepository.find();
 
-  // 更新门店
-  async update(id: string, dto: UpdateStoreDto): Promise<Store> {
-    const store = await this.storeRepository.findOne({ where: { id } });
-    if (!store) {
-      throw new NotFoundException('门店不存在');
-    }
-    Object.assign(store, dto);
-    return this.storeRepository.save(store);
-  }
+    const result = [];
+    for (const store of stores) {
+      // 关联的管理员
+      const userStores = await this.userStoreRepository.find({ where: { storeId: store.id } });
+      const userIds = userStores.map(us => us.userId);
+      let admins: { id: string; name: string; username: string; role: string }[] = [];
+      if (userIds.length > 0) {
+        const users = await this.userRepository.find({ where: { id: In(userIds) } });
+        admins = users
+          .filter(u => u.role === 'admin' || u.role === 'superadmin')
+          .map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role }));
+      }
 
-  // 删除门店
-  async delete(id: string): Promise<void> {
-    const store = await this.storeRepository.findOne({ where: { id } });
-    if (!store) {
-      throw new NotFoundException('门店不存在');
-    }
-    await this.storeRepository.remove(store);
-  }
+      // 会员数
+      const memberCount = await this.memberRepository.count({ where: { storeId: store.id } });
 
-  // 获取门店详情
-  async get(id: string): Promise<Store> {
-    const store = await this.storeRepository.findOne({ where: { id } });
-    if (!store) {
-      throw new NotFoundException('门店不存在');
-    }
-    return store;
-  }
+      // 员工数
+      const employeeCount = await this.employeeRepository.count({ where: { storeId: store.id } });
 
-  // 获取门店列表
-  async list(query: QueryStoreDto): Promise<{ data: Store[]; total: number }> {
-    const { keyword, status, city, province, page = 1, pageSize = 10 } = query;
-    
-    const queryBuilder = this.storeRepository.createQueryBuilder('store');
-    
-    if (keyword) {
-      queryBuilder.andWhere(
-        '(store.name LIKE :keyword OR store.code LIKE :keyword OR store.address LIKE :keyword)',
-        { keyword: `%${keyword}%` }
-      );
-    }
-    
-    if (status) {
-      queryBuilder.andWhere('store.status = :status', { status });
-    }
-    
-    if (city) {
-      queryBuilder.andWhere('store.city = :city', { city });
-    }
-    
-    if (province) {
-      queryBuilder.andWhere('store.province = :province', { province });
-    }
-    
-    queryBuilder
-      .orderBy('store.createdAt', 'DESC')
-      .skip((page - 1) * pageSize)
-      .take(pageSize);
-    
-    const [data, total] = await queryBuilder.getManyAndCount();
-    return { data, total };
-  }
-
-  // 获取所有活跃门店
-  async getActiveStores(): Promise<Store[]> {
-    return this.storeRepository.find({ 
-      where: { status: StoreStatus.ACTIVE },
-      order: { createdAt: 'DESC' }
-    });
-  }
-
-  // 获取门店树形结构
-  async getTree(): Promise<any[]> {
-    const stores = await this.storeRepository.find({ order: { createdAt: 'DESC' } });
-    
-    const buildTree = (items: Store[], parentId: string | null = null): any[] => {
-      return items
-        .filter(item => (parentId ? item.parentId === parentId : !item.parentId))
-        .map(item => ({
-          ...item,
-          children: buildTree(items, item.id),
-        }));
-    };
-    
-    return buildTree(stores);
-  }
-
-  // 设置门店配置
-  async setConfig(storeId: string, key: string, value: any, description?: string, type?: string): Promise<StoreConfig> {
-    let config = await this.storeConfigRepository.findOne({ 
-      where: { storeId, key } 
-    });
-    
-    const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-    
-    if (config) {
-      config.value = stringValue;
-      if (description) config.description = description;
-      if (type) config.type = type;
-    } else {
-      config = this.storeConfigRepository.create({
-        storeId,
-        key,
-        value: stringValue,
-        description,
-        type: type || 'string',
+      result.push({
+        ...store,
+        admins,
+        memberCount,
+        employeeCount,
       });
     }
-    
-    return this.storeConfigRepository.save(config);
+
+    return result;
   }
 
-  // 获取门店配置
-  async getConfig(storeId: string, key: string, defaultValue?: any): Promise<any> {
-    const config = await this.storeConfigRepository.findOne({ 
-      where: { storeId, key } 
-    });
-    
-    if (!config) return defaultValue;
-    
-    if (config.type === 'number') return Number(config.value);
-    if (config.type === 'boolean') return config.value === 'true';
-    if (config.type === 'json') {
-      try {
-        return JSON.parse(config.value);
-      } catch {
-        return config.value;
-      }
+  async findOne(id: string): Promise<any | null> {
+    const store = await this.storeRepository.findOne({ where: { id } });
+    if (!store) return null;
+
+    const userStores = await this.userStoreRepository.find({ where: { storeId: id } });
+    const userIds = userStores.map(us => us.userId);
+    let admins: { id: string; name: string; username: string; role: string }[] = [];
+    if (userIds.length > 0) {
+      const users = await this.userRepository.find({ where: { id: In(userIds) } });
+      admins = users
+        .filter(u => u.role === 'admin' || u.role === 'superadmin')
+        .map(u => ({ id: u.id, name: u.name, username: u.username, role: u.role }));
     }
-    return config.value;
+
+    const memberCount = await this.memberRepository.count({ where: { storeId: id } });
+    const employeeCount = await this.employeeRepository.count({ where: { storeId: id } });
+
+    return { ...store, admins, memberCount, employeeCount };
   }
 
-  // 获取门店所有配置
-  async getAllConfigs(storeId: string): Promise<StoreConfig[]> {
-    return this.storeConfigRepository.find({ where: { storeId } });
+  async create(data: Partial<Store>): Promise<Store> {
+    const store = this.storeRepository.create(data);
+    return this.storeRepository.save(store);
   }
 
-  // 删除门店配置
-  async deleteConfig(storeId: string, key: string): Promise<void> {
-    await this.storeConfigRepository.delete({ storeId, key });
+  async update(id: string, data: Partial<Store>): Promise<Store> {
+    await this.storeRepository.update(id, data);
+    return this.storeRepository.findOne({ where: { id } }) as Promise<Store>;
   }
 
-  // 批量设置门店配置
-  async setConfigs(storeId: string, configs: Array<{ key: string; value: any; description?: string; type?: string }>): Promise<void> {
-    for (const config of configs) {
-      await this.setConfig(storeId, config.key, config.value, config.description, config.type);
-    }
-  }
-
-  // 获取门店统计
-  async getStats(): Promise<any> {
-    const total = await this.storeRepository.count();
-    const active = await this.storeRepository.count({ where: { status: StoreStatus.ACTIVE } });
-    const inactive = await this.storeRepository.count({ where: { status: StoreStatus.INACTIVE } });
-    const maintenance = await this.storeRepository.count({ where: { status: StoreStatus.MAINTENANCE } });
-    
-    return { total, active, inactive, maintenance };
-  }
-
-  // 批量更新门店状态
-  async batchUpdateStatus(ids: string[], status: StoreStatus): Promise<void> {
-    await this.storeRepository.update({ id: In(ids) }, { status });
-  }
-
-  // 根据编码获取门店
-  async getByCode(code: string): Promise<Store | null> {
-    return this.storeRepository.findOne({ where: { code } });
+  async remove(id: string): Promise<void> {
+    await this.storeRepository.delete(id);
   }
 }

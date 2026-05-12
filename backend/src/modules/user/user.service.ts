@@ -1,89 +1,153 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { User, UserRole } from './user.entity';
+import { Repository, In } from 'typeorm';
+import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UserStore } from './entities/user-store.entity';
+import { Store } from '../store/store.entity';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(UserStore)
+    private userStoreRepository: Repository<UserStore>,
+    @InjectRepository(Store)
+    private storeRepository: Repository<Store>,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.findOne({
-      where: { username: createUserDto.username },
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { phone } });
+  }
+
+  async findByUsername(username: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { username } });
+  }
+
+  // 查询待审核用户（isActive = '0' 的员工）
+  async findPending(): Promise<any[]> {
+    const users = await this.userRepository.find({
+      where: { isActive: '0' },
+      select: ['id', 'username', 'name', 'phone', 'role', 'createdAt'],
     });
-    
-    if (existingUser) {
-      throw new ConflictException('用户名已存在');
+    return users;
+  }
+
+  // 审核通过：激活帐号 + 设置角色 + 分配门店
+  async approve(userId: string, role: string, storeId?: string): Promise<User> {
+    const updateData: any = { isActive: '1', role };
+    if (storeId) updateData.storeId = storeId;
+    await this.userRepository.update(userId, updateData);
+    if (storeId) {
+      await this.addUserStore(userId, storeId);
     }
-    
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    
+    return (await this.userRepository.findOne({ where: { id: userId } }))!;
+  }
+
+  // 审核拒绝：删除帐号
+  async reject(userId: string): Promise<void> {
+    await this.userRepository.delete(userId);
+  }
+
+  async findAll(storeId?: string): Promise<any[]> {
+    const where: any = {};
+    if (storeId) where.storeId = storeId;
+
+    const users = await this.userRepository.find({
+      where,
+      select: ['id', 'username', 'name', 'phone', 'avatar', 'role', 'storeId', 'isActive', 'createdAt'],
+    });
+
+    // 为每个用户附加关联门店信息
+    const result = [];
+    for (const user of users) {
+      const userStores = await this.userStoreRepository.find({ where: { userId: user.id } });
+      const storeIds = userStores.map(us => us.storeId);
+      let stores: { id: string; name: string }[] = [];
+      if (storeIds.length > 0) {
+        const storeEntities = await this.storeRepository.find({ where: { id: In(storeIds) } });
+        stores = storeEntities.map(s => ({ id: s.id, name: s.name }));
+      }
+      result.push({
+        ...user,
+        stores,
+      });
+    }
+
+    return result;
+  }
+
+  async findOne(id: string): Promise<any> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) return null;
+
+    const userStores = await this.userStoreRepository.find({ where: { userId: id } });
+    const storeIds = userStores.map(us => us.storeId);
+    let stores: { id: string; name: string }[] = [];
+    if (storeIds.length > 0) {
+      const storeEntities = await this.storeRepository.find({ where: { id: In(storeIds) } });
+      stores = storeEntities.map(s => ({ id: s.id, name: s.name }));
+    }
+
+    return { ...user, stores };
+  }
+
+  async create(dto: CreateUserDto): Promise<User> {
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = this.userRepository.create({
-      ...createUserDto,
+      ...dto,
       password: hashedPassword,
     });
-    
     return this.userRepository.save(user);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      select: ['id', 'username', 'name', 'phone', 'avatar', 'role', 'isActive', 'createdAt'],
-    });
-  }
-
-  async findOne(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      select: ['id', 'username', 'name', 'phone', 'avatar', 'role', 'isActive', 'createdAt'],
-    });
-    
-    if (!user) {
-      throw new NotFoundException('用户不存在');
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    const updateData: any = { ...dto };
+    if (dto.password) {
+      updateData.password = await bcrypt.hash(dto.password, 10);
     }
-    
-    return user;
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
-    
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
-    }
-    
-    Object.assign(user, updateUserDto);
-    return this.userRepository.save(user);
+    await this.userRepository.update(id, updateData);
+    return this.userRepository.findOne({ where: { id } }) as Promise<User>;
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
-    await this.userRepository.remove(user);
+    await this.userRepository.delete(id);
   }
 
-  // 重置密码（忘记密码功能）
-  async resetPassword(dto: { username: string; newPassword: string; phone?: string }): Promise<{ message: string }> {
-    const user = await this.userRepository.findOne({ where: { username: dto.username } });
-    
-    if (!user) {
-      throw new NotFoundException('用户名不存在');
+  async addUserStore(userId: string, storeId: string): Promise<void> {
+    const existing = await this.userStoreRepository.findOne({
+      where: { userId, storeId },
+    });
+    if (!existing) {
+      await this.userStoreRepository.save(
+        this.userStoreRepository.create({ userId, storeId }),
+      );
     }
-    
-    // 如果提供了手机号，验证是否匹配
-    if (dto.phone && user.phone && user.phone !== dto.phone) {
-      throw new BadRequestException('手机号与注册手机号不一致');
+  }
+
+  async removeUserStore(userId: string, storeId: string): Promise<void> {
+    await this.userStoreRepository.delete({ userId, storeId });
+  }
+
+  async setUserStores(userId: string, storeIds: string[]): Promise<void> {
+    // 先删除所有旧的关联
+    await this.userStoreRepository.delete({ userId });
+    // 再批量新增
+    for (const storeId of storeIds) {
+      await this.userStoreRepository.save(
+        this.userStoreRepository.create({ userId, storeId }),
+      );
     }
-    
-    // 更新密码
-    user.password = await bcrypt.hash(dto.newPassword, 10);
-    await this.userRepository.save(user);
-    
-    return { message: '密码重置成功，请使用新密码登录' };
+  }
+
+  async getUserStores(userId: string): Promise<{ id: string; name: string }[]> {
+    const userStores = await this.userStoreRepository.find({ where: { userId } });
+    const storeIds = userStores.map(us => us.storeId);
+    if (storeIds.length === 0) return [];
+    const stores = await this.storeRepository.find({ where: { id: In(storeIds) } });
+    return stores.map(s => ({ id: s.id, name: s.name }));
   }
 }

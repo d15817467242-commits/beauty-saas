@@ -28,6 +28,16 @@ export class InventoryController {
     return this.productService.create(dto);
   }
 
+  @Get('warehouses')
+  async getWarehouses() {
+    return [{ id: 1, name: '默认仓库', type: 'main', address: '' }];
+  }
+
+  @Get('service-consumables')
+  async findAllServiceConsumables() {
+    return this.consumableService.findAllServiceConsumables();
+  }
+
   @Get('products')
   async findAllProducts(@Query('category') category?: string) {
     return this.productService.findAll(category);
@@ -58,7 +68,7 @@ export class InventoryController {
 
   @Get('stock/movements')
   async getStockMovements(@Query('productId') productId?: string) {
-    return this.productService.getStockMovements(productId);
+    return this.productService.getProductStockMovements(productId);
   }
 
   @Put('stock/warning/:productId')
@@ -84,7 +94,7 @@ export class InventoryController {
   }
 
   // ==================== 耗材管理 ====================
-  
+
   @Post('consumables')
   async createConsumable(@Body() dto: CreateConsumableDto) {
     return this.consumableService.create(dto);
@@ -93,6 +103,17 @@ export class InventoryController {
   @Get('consumables')
   async findAllConsumables(@Query('category') category?: string) {
     return this.consumableService.findAll(category);
+  }
+
+  // 固定路径必须在动态参数路由之前
+  @Get('consumables/low-stock')
+  async getLowStockConsumables() {
+    return this.consumableService.getLowStockConsumables();
+  }
+
+  @Get('consumables/movements')
+  async getConsumableMovements(@Query('consumableId') consumableId?: string) {
+    return this.consumableService.getMovements(consumableId);
   }
 
   @Get('consumables/:id')
@@ -114,16 +135,6 @@ export class InventoryController {
   @Post('consumables/movement')
   async createConsumableMovement(@Body() dto: CreateConsumableMovementDto, @Request() req: any) {
     return this.consumableService.createMovement(dto, req.user.userId);
-  }
-
-  @Get('consumables/movements')
-  async getConsumableMovements(@Query('consumableId') consumableId?: string) {
-    return this.consumableService.getMovements(consumableId);
-  }
-
-  @Get('consumables/low-stock')
-  async getLowStockConsumables() {
-    return this.consumableService.getLowStockConsumables();
   }
 
   // ==================== 服务耗材关联 ====================

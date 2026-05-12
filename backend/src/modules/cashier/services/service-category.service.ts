@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { ServiceCategory } from '../entities/service-category.entity';
+import { ServiceCategoryEntity as ServiceCategory } from '../../service/service-category.entity';
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '../dto/service-category.dto';
 
 @Injectable()

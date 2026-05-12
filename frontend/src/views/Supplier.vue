@@ -314,7 +314,8 @@ const detailDialogVisible = ref(false)
 
 // 表单
 const supplierFormRef = ref<FormInstance>()
-const supplierForm = ref({
+const supplierForm = ref<any>({
+  id: null,
   name: '',
   supplierCode: '',
   category: '',
@@ -412,7 +413,7 @@ const loadData = async () => {
     const statsData = await statsRes.json()
     suppliers.value = suppliersData
     statistics.value = statsData
-    categories.value = [...new Set(suppliersData.map((s: any) => s.category))]
+    categories.value = [...new Set(suppliersData.map((s: any) => s.category))] as string[]
   } catch (e) {
     ElMessage.error('加载数据失败')
   }

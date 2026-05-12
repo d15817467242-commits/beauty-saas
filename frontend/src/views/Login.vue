@@ -23,18 +23,23 @@
       <el-form v-if="pageMode === 'login'" :model="loginForm" :rules="loginRules" ref="loginFormRef" label-width="0" class="login-form">
         <el-form-item prop="username">
           <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <el-input v-model="loginForm.username" placeholder="请输入用户名" size="large" class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item prop="phone">
+          <div class="input-wrapper">
             <span class="input-icon">📞</span>
             <span class="phone-prefix">+86</span>
-            <el-input v-model="loginForm.username" placeholder="请输入手机号" size="large" class="custom-input" />
+            <el-input v-model="loginForm.phone" placeholder="请输入手机号" size="large" class="custom-input" />
           </div>
         </el-form-item>
         <el-form-item prop="password">
           <div class="input-wrapper">
             <span class="input-icon">🔒</span>
-            <el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" show-password @keyup.enter="handleLogin" class="custom-input" />
+            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" size="large" show-password @keyup.enter="handleLogin" class="custom-input" />
           </div>
         </el-form-item>
-        <p class="input-hint">请输入密码</p>
         <el-form-item>
           <button type="button" class="login-btn" :disabled="loading" @click="handleLogin">
             <span v-if="!loading">登 录</span>
@@ -52,9 +57,15 @@
       <el-form v-else-if="pageMode === 'register'" :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="0" class="login-form">
         <el-form-item prop="username">
           <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <el-input v-model="registerForm.username" placeholder="请输入用户名" size="large" class="custom-input" />
+          </div>
+        </el-form-item>
+        <el-form-item prop="phone">
+          <div class="input-wrapper">
             <span class="input-icon">📞</span>
             <span class="phone-prefix">+86</span>
-            <el-input v-model="registerForm.username" placeholder="请输入手机号" size="large" class="custom-input" />
+            <el-input v-model="registerForm.phone" placeholder="请输入手机号" size="large" class="custom-input" />
           </div>
         </el-form-item>
         <el-form-item prop="password">
@@ -75,6 +86,13 @@
             <el-input v-model="registerForm.name" placeholder="请输入真实姓名" size="large" class="custom-input" />
           </div>
         </el-form-item>
+        <el-form-item prop="licenseKey">
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
+            <el-input v-model="registerForm.licenseKey" placeholder="邀请密钥（有密钥才能注册管理员）" size="large" class="custom-input" />
+          </div>
+        </el-form-item>
+        <p class="input-hint">无密钥注册为员工帐号，需管理员审核后才能登录</p>
         <el-form-item>
           <button type="button" class="login-btn" :disabled="loading" @click="handleRegister">
             <span v-if="!loading">注 册</span>
@@ -88,41 +106,13 @@
 
       <!-- 忘记密码表单 -->
       <el-form v-else :model="forgotForm" :rules="forgotRules" ref="forgotFormRef" label-width="0" class="login-form">
-        <p class="form-desc">请输入用户名和新密码来重置密码</p>
-        <el-form-item prop="username">
-          <div class="input-wrapper">
-            <span class="input-icon">👤</span>
-            <el-input v-model="forgotForm.username" placeholder="请输入用户名" size="large" class="custom-input" />
-          </div>
-        </el-form-item>
-        <el-form-item prop="phone">
-          <div class="input-wrapper">
-            <span class="input-icon">📞</span>
-            <span class="phone-prefix">+86</span>
-            <el-input v-model="forgotForm.phone" placeholder="注册时的手机号（选填）" size="large" class="custom-input" />
-          </div>
-        </el-form-item>
-        <el-form-item prop="newPassword">
-          <div class="input-wrapper">
-            <span class="input-icon">🔒</span>
-            <el-input v-model="forgotForm.newPassword" type="password" placeholder="请输入新密码" size="large" show-password class="custom-input" />
-          </div>
-        </el-form-item>
-        <el-form-item prop="confirmNewPassword">
-          <div class="input-wrapper">
-            <span class="input-icon">🔒</span>
-            <el-input v-model="forgotForm.confirmNewPassword" type="password" placeholder="请确认新密码" size="large" show-password @keyup.enter="handleResetPassword" class="custom-input" />
-          </div>
-        </el-form-item>
+        <p class="form-desc">请联系管理员重置密码</p>
+        <p class="form-desc" style="font-size: 13px; color: rgba(255,255,255,0.5);">管理员可在「员工管理」中为您重置密码</p>
         <el-form-item>
-          <button type="button" class="login-btn" :disabled="loading" @click="handleResetPassword">
-            <span v-if="!loading">重置密码</span>
-            <span v-else>提交中...</span>
+          <button type="button" class="login-btn" @click="pageMode = 'login'">
+            返回登录
           </button>
         </el-form-item>
-        <div class="bottom-links">
-          <span @click="pageMode = 'login'">← 返回登录</span>
-        </div>
       </el-form>
 
       <!-- 底部信息 -->
@@ -150,12 +140,13 @@ const forgotFormRef = ref<FormInstance>()
 const loading = ref(false)
 const pageMode = ref<'login' | 'register' | 'forgot'>('login')
 
-const loginForm = reactive({ username: '', password: '' })
-const registerForm = reactive({ username: '', password: '', confirmPassword: '', name: '', phone: '' })
+const loginForm = reactive({ username: '', phone: '', password: '' })
+const registerForm = reactive({ username: '', password: '', confirmPassword: '', name: '', phone: '', licenseKey: '' })
 const forgotForm = reactive({ username: '', phone: '', newPassword: '', confirmNewPassword: '' })
 
 const loginRules: FormRules = {
-  username: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
@@ -187,62 +178,77 @@ const forgotRules: FormRules = {
   ]
 }
 
-const switchToRegister = () => { pageMode.value = 'register' }
-const switchToLogin = () => { pageMode.value = 'login' }
-
 const handleLogin = async () => {
   if (!loginFormRef.value) return
-  await loginFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginForm) })
-        const data = await response.json()
-        if (response.ok) {
-          userStore.setToken(data.access_token)
-          userStore.setUserInfo({ ...data.user, permissions: data.permissions || [] })
-          ElMessage.success('登录成功')
-          router.push('/')
-        } else { ElMessage.error(data.message || '登录失败') }
-      } catch (error) { ElMessage.error('登录失败，请检查网络') }
-      finally { loading.value = false }
-    }
-  })
+  try {
+    await loginFormRef.value.validate()
+  } catch {
+    return
+  }
+  loading.value = true
+  try {
+    const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginForm) })
+    const data = await response.json()
+    if (response.ok) {
+      userStore.setToken(data.access_token)
+      userStore.setUserInfo({ ...data.user, permissions: data.permissions || [] })
+      if (data.storeList) userStore.setStoreList(data.storeList)
+      ElMessage.success('登录成功')
+      router.push('/')
+    } else { ElMessage.error(data.message || '登录失败') }
+  } catch (error) { ElMessage.error('登录失败，请检查网络') }
+  finally { loading.value = false }
 }
 
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  await registerFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: registerForm.username, password: registerForm.password, name: registerForm.name, phone: registerForm.phone || undefined }) })
-        const data = await response.json()
-        if (response.ok) { ElMessage.success('注册成功，请登录'); pageMode.value = 'login'; loginForm.username = registerForm.username }
-        else { ElMessage.error(data.message || '注册失败') }
-      } catch (error) { ElMessage.error('注册失败，请检查网络') }
-      finally { loading.value = false }
-    }
-  })
+  try {
+    await registerFormRef.value.validate()
+  } catch {
+    return
+  }
+  loading.value = true
+  try {
+    const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: registerForm.username, password: registerForm.password, name: registerForm.name, phone: registerForm.phone || undefined, licenseKey: registerForm.licenseKey || undefined }) })
+    const data = await response.json()
+    if (response.ok) { ElMessage.success('注册成功，请登录'); pageMode.value = 'login'; loginForm.username = registerForm.username }
+    else { ElMessage.error(data.message || '注册失败') }
+  } catch (error) { ElMessage.error('注册失败，请检查网络') }
+  finally { loading.value = false }
 }
 
 const handleResetPassword = async () => {
   if (!forgotFormRef.value) return
-  await forgotFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const response = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: forgotForm.username, newPassword: forgotForm.newPassword, phone: forgotForm.phone || undefined }) })
-        const data = await response.json()
-        if (response.ok) {
-          ElMessage.success('密码重置成功，请使用新密码登录')
-          pageMode.value = 'login'
-          loginForm.username = forgotForm.username
-        } else { ElMessage.error(data.message || '重置失败') }
-      } catch (error) { ElMessage.error('重置失败，请检查网络') }
-      finally { loading.value = false }
+  try {
+    await forgotFormRef.value.validate()
+  } catch {
+    return
+  }
+  loading.value = true
+  try {
+    const response = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: forgotForm.username,
+        newPassword: forgotForm.newPassword,
+        ...(forgotForm.phone ? { phone: forgotForm.phone } : {})
+      })
+    })
+    const data = await response.json()
+    if (response.ok) {
+      ElMessage.success('密码重置成功，请使用新密码登录')
+      pageMode.value = 'login'
+      loginForm.username = forgotForm.username
+    } else {
+      const msg = Array.isArray(data.message) ? data.message.join('；') : (data.message || '重置失败')
+      ElMessage.error(msg)
     }
-  })
+  } catch (error) {
+    ElMessage.error('重置失败，请检查网络')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

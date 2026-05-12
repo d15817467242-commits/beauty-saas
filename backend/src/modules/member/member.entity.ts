@@ -15,6 +15,9 @@ export enum MemberCardType {
 
 @Entity('members')
 export class Member extends BaseEntity {
+  @Column({ nullable: true, name: 'store_id', comment: '所属门店ID' })
+  storeId: string;
+
   @Column({ type: 'text', comment: '会员姓名' })
   name: string;
 

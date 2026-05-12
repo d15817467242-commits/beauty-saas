@@ -172,15 +172,16 @@ onMounted(() => {
 async function loadData() {
   loading.value = true
   try {
-    const res = await request.get('/gift', {
-      params: {
-        ...searchForm,
-        page: pagination.page,
-        pageSize: pagination.pageSize
-      }
-    })
-    tableData.value = res.data.data
-    pagination.total = res.data.total
+    // 过滤掉空字符串参数，避免后端验证报错
+    const params: any = { page: pagination.page, pageSize: pagination.pageSize }
+    if (searchForm.keyword) params.keyword = searchForm.keyword
+    if (searchForm.type) params.type = searchForm.type
+    if (searchForm.status) params.status = searchForm.status
+
+    const res = await request.get('/gift', { params })
+    const result = res.data || res
+    tableData.value = Array.isArray(result) ? result : (result.data || [])
+    pagination.total = result.total || tableData.value.length
   } catch (e) {
     console.error(e)
   } finally {

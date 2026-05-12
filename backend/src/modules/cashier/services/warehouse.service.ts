@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Warehouse } from '../entities/warehouse.entity';
+import { Warehouse } from '../../data-settings/entities/warehouse.entity';
 import { CreateWarehouseDto, UpdateWarehouseDto } from '../dto/warehouse.dto';
 
 @Injectable()
@@ -45,8 +45,8 @@ export class WarehouseService {
   }
 
   async findByCode(code: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOne({ 
-      where: { warehouseCode: code } 
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { code }
     });
     if (!warehouse) {
       throw new NotFoundException('仓库不存在');

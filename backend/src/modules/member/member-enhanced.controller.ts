@@ -90,6 +90,11 @@ export class MemberTagController {
 export class PointExchangeController {
   constructor(private exchangeService: PointExchangeService) {}
 
+  @Get()
+  async findAll() {
+    return this.exchangeService.findRules();
+  }
+
   @Post('rules')
   async createRule(@Body() dto: CreatePointExchangeRuleDto, @Request() req: any) {
     return this.exchangeService.createRule(dto, req.user.userId);
@@ -135,7 +140,7 @@ export class MemberRankingController {
   }
 }
 
-@Controller('stores')
+@Controller('member-stores')
 export class StoreController {
   constructor(private storeService: StoreService) {}
 
@@ -221,6 +226,11 @@ export class MemberLevelController {
 export class MemberPointsController {
   constructor(private pointsService: MemberPointsService) {}
 
+  @Get()
+  async findAll() {
+    return this.pointsService.getPointsRecords({} as any);
+  }
+
   @Get(':memberId')
   async getMemberPoints(@Param('memberId') memberId: string) {
     return this.pointsService.getMemberPoints(memberId);
@@ -253,6 +263,11 @@ export class MemberPointsController {
 @Controller('member-referrals')
 export class MemberReferralController {
   constructor(private referralService: MemberReferralService) {}
+
+  @Get()
+  async findAll() {
+    return this.referralService.queryReferrals({} as any);
+  }
 
   @Post()
   async createReferral(@Body() dto: CreateReferralDto) {
@@ -293,6 +308,11 @@ export class MemberReferralController {
 @Controller('member-portrait')
 export class MemberPortraitController {
   constructor(private portraitService: MemberPortraitService) {}
+
+  @Get()
+  async findAll() {
+    return { message: '请指定会员ID查询画像' };
+  }
 
   @Get(':memberId')
   async getPortrait(@Param('memberId') memberId: string) {

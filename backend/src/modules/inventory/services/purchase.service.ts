@@ -87,6 +87,15 @@ export class PurchaseService {
     });
   }
 
+  // 获取待审批采购单
+  async findPendingApproval(query?: any): Promise<PurchaseOrder[]> {
+    return this.purchaseOrderRepository.find({
+      where: { status: PurchaseStatus.PENDING },
+      relations: ['items', 'supplier'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   // 获取单个采购单
   async findOne(id: string): Promise<PurchaseOrder> {
     const order = await this.purchaseOrderRepository.findOne({

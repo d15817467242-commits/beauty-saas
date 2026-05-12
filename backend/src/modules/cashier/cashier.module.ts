@@ -10,25 +10,25 @@ import { MemberModule } from '../member/member.module';
 import { EmployeeModule } from '../employee/employee.module';
 import { ServiceModule } from '../service/service.module';
 
-// 新增实体
-import { ServiceCategory } from './entities/service-category.entity';
+// 实体 - 使用其他模块的实体避免重复
+import { ServiceCategoryEntity } from '../service/service-category.entity';
 import { ProductCategory } from './entities/product-category.entity';
 import { Discount } from './entities/discount.entity';
-import { Warehouse } from './entities/warehouse.entity';
+import { Warehouse } from '../data-settings/entities/warehouse.entity';
 import { CouponVerification } from './entities/coupon-verification.entity';
-import { Product } from './entities/product.entity';
+import { Product } from '../inventory/product.entity';
 import { Document } from './entities/document.entity';
 
-// 新增服务
+// 服务
 import { ServiceCategoryService } from './services/service-category.service';
 import { ProductCategoryService } from './services/product-category.service';
 import { DiscountService } from './services/discount.service';
 import { WarehouseService } from './services/warehouse.service';
 import { CouponService } from './services/coupon.service';
 
-// 新增控制器
-import { 
-  ServiceCategoryController, 
+// 控制器
+import {
+  ServiceCategoryController,
   ProductCategoryController,
   DiscountController,
   WarehouseController,
@@ -37,12 +37,14 @@ import {
 
 @Module({
   imports: [
+    MemberModule,
+    EmployeeModule,
+    ServiceModule,
     TypeOrmModule.forFeature([
-      Consumption, 
-      Credit, 
+      Consumption,
+      Credit,
       CreditPayment,
-      // 新增实体
-      ServiceCategory,
+      ServiceCategoryEntity,
       ProductCategory,
       Discount,
       Warehouse,
@@ -50,14 +52,10 @@ import {
       Product,
       Document,
     ]),
-    MemberModule,
-    EmployeeModule,
-    ServiceModule,
   ],
   controllers: [
-    CashierController, 
+    CashierController,
     CreditController,
-    // 新增控制器
     ServiceCategoryController,
     ProductCategoryController,
     DiscountController,
@@ -65,25 +63,18 @@ import {
     CouponController,
   ],
   providers: [
-    CashierService, 
+    CashierService,
     CreditService,
-    // 新增服务
     ServiceCategoryService,
     ProductCategoryService,
     DiscountService,
     WarehouseService,
     CouponService,
-    DiscountService, // 为 CashierService 提供
   ],
   exports: [
-    CashierService, 
+    CashierService,
     CreditService,
-    // 新增服务导出
-    ServiceCategoryService,
-    ProductCategoryService,
-    DiscountService,
-    WarehouseService,
-    CouponService,
+    TypeOrmModule,
   ],
 })
 export class CashierModule {}

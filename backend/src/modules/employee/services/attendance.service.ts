@@ -50,14 +50,13 @@ export class AttendanceService {
     const schedule = await this.scheduleRepository.findOne({
       where: {
         employeeId: dto.employeeId,
-        scheduleDate: new Date(today),
-      },
-      relations: ['shift'],
+        scheduleDate: today,
+      } as any,
     });
 
-    if (schedule?.shift) {
-      attendance.scheduledStart = schedule.shift.startTime || '';
-      attendance.scheduledEnd = schedule.shift.endTime || '';
+    if (schedule) {
+      attendance.scheduledStart = schedule.startTime || '';
+      attendance.scheduledEnd = schedule.endTime || '';
     }
 
     // 获取考勤规则并计算状态
@@ -181,11 +180,13 @@ export class AttendanceService {
 
   // 查询考勤记录
   async findByEmployee(dto: AttendanceQueryDto): Promise<Attendance[]> {
+    const where: any = {};
+    if (dto.employeeId) where.employeeId = dto.employeeId;
+    if (dto.startDate && dto.endDate) {
+      where.date = Between(new Date(dto.startDate!), new Date(dto.endDate!));
+    }
     return this.attendanceRepository.find({
-      where: {
-        employeeId: dto.employeeId,
-        date: Between(new Date(dto.startDate), new Date(dto.endDate)),
-      },
+      where,
       relations: ['employee'],
       order: { date: 'DESC' },
     });

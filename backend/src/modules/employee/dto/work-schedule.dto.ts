@@ -1,5 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsDateString, IsEnum, IsUUID } from 'class-validator';
-import { ScheduleStatus } from '../entities/work-schedule.entity';
+import { IsString, IsNotEmpty, IsOptional, IsDateString } from 'class-validator';
 
 export class CreateWorkScheduleDto {
   @IsString()
@@ -8,11 +7,19 @@ export class CreateWorkScheduleDto {
 
   @IsOptional()
   @IsString()
-  shiftId?: string;
+  type?: string;
 
   @IsDateString()
   @IsNotEmpty({ message: '排班日期不能为空' })
   scheduleDate: string;
+
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @IsOptional()
+  @IsString()
+  endTime?: string;
 
   @IsOptional()
   @IsString()
@@ -22,23 +29,19 @@ export class CreateWorkScheduleDto {
 export class UpdateWorkScheduleDto {
   @IsOptional()
   @IsString()
-  shiftId?: string;
+  type?: string;
 
   @IsOptional()
   @IsDateString()
   scheduleDate?: string;
 
   @IsOptional()
-  @IsEnum(ScheduleStatus)
-  status?: ScheduleStatus;
+  @IsString()
+  startTime?: string;
 
   @IsOptional()
   @IsString()
-  actualStart?: string;
-
-  @IsOptional()
-  @IsString()
-  actualEnd?: string;
+  endTime?: string;
 
   @IsOptional()
   @IsString()
@@ -50,13 +53,13 @@ export class BatchScheduleDto {
   @IsNotEmpty({ message: '员工ID列表不能为空' })
   employeeIds: string[];
 
-  @IsOptional()
-  @IsString()
-  shiftId?: string;
-
   @IsDateString({}, { each: true })
   @IsNotEmpty({ message: '排班日期列表不能为空' })
   scheduleDates: string[];
+
+  @IsOptional()
+  @IsString()
+  type?: string;
 
   @IsOptional()
   @IsString()

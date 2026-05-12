@@ -3,6 +3,7 @@ import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto, UpdateAppointmentDto, CancelAppointmentDto, QueryAppointmentDto } from './dto/appointment.dto';
 import { CreateScheduleDto, UpdateScheduleDto, BatchCreateScheduleDto, QueryScheduleDto } from './dto/schedule.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { StoreId } from '../../common/decorators/store-id.decorator';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard)
@@ -17,8 +18,8 @@ export class AppointmentController {
   }
 
   @Get()
-  findAll(@Query() query: QueryAppointmentDto) {
-    return this.appointmentService.findAll(query);
+  findAll(@Query() query: QueryAppointmentDto, @StoreId() storeId?: string) {
+    return this.appointmentService.findAll(query, storeId);
   }
 
   @Get(':id')

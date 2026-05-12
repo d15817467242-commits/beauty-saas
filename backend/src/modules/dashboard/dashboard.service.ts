@@ -1,11 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
 import { Consumption, ConsumptionType } from '../cashier/consumption.entity';
 import { Employee, EmployeeStatus } from '../employee/entities/employee.entity';
 import { Service } from '../service/service.entity';
 import { Appointment, AppointmentStatus } from '../appointment/appointment.entity';
 import { Member, MemberLevel } from '../member/member.entity';
+import { User, UserRole } from '../user/user.entity';
+import { Store } from '../store/store.entity';
+import { UserStore } from '../user/entities/user-store.entity';
 import { 
   OverviewQueryDto, 
   RealtimeQueryDto, 
@@ -29,7 +32,126 @@ export class DashboardService {
     private appointmentRepository: Repository<Appointment>,
     @InjectRepository(Member)
     private memberRepository: Repository<Member>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(Store)
+    private storeRepository: Repository<Store>,
+    @InjectRepository(UserStore)
+    private userStoreRepository: Repository<UserStore>,
   ) {}
+
+  // ========== 平台级数据总览 ==========
+
+  async getPlatformOverview(user: any): Promise<any> {
+    if (user.role !== 'superadmin') {
+      throw new ForbiddenException('仅服务商可查看平台数据');
+    }
+
+    // 门店统计
+    const stores = await this.storeRepository.find();
+    const activeStores = stores.filter(s => s.status === 'active').length;
+
+    // 用户统计（按角色分类）
+    const users = await this.userRepository.find();
+    const usersByRole: Record<string, number> = {};
+    for (const u of users) {
+      usersByRole[u.role] = (usersByRole[u.role] || 0) + 1;
+    }
+
+    // 会员总数
+    const totalMembers = await this.memberRepository.count();
+
+    // 员工总数
+    const totalEmployees = await this.employeeRepository.count();
+
+    // 总营收
+    const consumptions = await this.consumptionRepository.find();
+    const totalRevenue = consumptions.reduce((sum, c) => sum + Number(c.actualAmount || 0), 0);
+
+    // 今日营收
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const todayConsumptions = await this.consumptionRepository.find({
+      where: { createdAt: Between(todayStart, todayEnd) },
+    });
+    const todayRevenue = todayConsumptions.reduce((sum, c) => sum + Number(c.actualAmount || 0), 0);
+
+    // 每个门店的简要数据
+    const storeList = [];
+    for (const store of stores) {
+      const storeMembers = await this.memberRepository.count({ where: { storeId: store.id } });
+      const storeEmployees = await this.employeeRepository.count({ where: { storeId: store.id } });
+      const storeConsumptions = consumptions; // 暂时无法按门店过滤，等 consumption 加 storeId 后再完善
+      const storeRevenue = storeConsumptions.reduce((sum, c) => sum + Number(c.actualAmount || 0), 0);
+
+      // 关联的管理员
+      const userStores = await this.userStoreRepository.find({ where: { storeId: store.id } });
+      const adminIds = userStores.map(us => us.userId);
+      const admins = adminIds.length > 0
+        ? (await this.userRepository.find({ where: { id: In(adminIds) } }))
+            .filter(u => u.role === 'admin' || u.role === 'superadmin')
+            .map(u => ({ id: u.id, name: u.name, username: u.username }))
+        : [];
+
+      storeList.push({
+        id: store.id,
+        name: store.name,
+        status: store.status,
+        memberCount: storeMembers,
+        employeeCount: storeEmployees,
+        revenue: Number(storeRevenue.toFixed(2)),
+        admins,
+      });
+    }
+
+    return {
+      stores: {
+        total: stores.length,
+        active: activeStores,
+        list: storeList,
+      },
+      users: {
+        total: users.length,
+        byRole: usersByRole,
+      },
+      members: { total: totalMembers },
+      employees: { total: totalEmployees },
+      revenue: {
+        total: Number(totalRevenue.toFixed(2)),
+        today: Number(todayRevenue.toFixed(2)),
+      },
+    };
+  }
+
+  // ========== 门店级 Dashboard ==========
+
+  async getDashboard(storeId?: string): Promise<any> {
+    // 简化版：返回门店级概览
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const where: any = {};
+    if (storeId) where.storeId = storeId;
+
+    const todayWhere = { ...where, createdAt: Between(todayStart, todayEnd) };
+
+    const todayConsumptions = await this.consumptionRepository.find({ where: todayWhere });
+    const todayRevenue = todayConsumptions.reduce((sum, c) => sum + Number(c.actualAmount || 0), 0);
+    const todayOrders = todayConsumptions.length;
+
+    const totalMembers = await this.memberRepository.count({ where });
+    const totalEmployees = await this.employeeRepository.count({ where });
+
+    return {
+      today: { revenue: Number(todayRevenue.toFixed(2)), customerCount: todayOrders },
+      member: { total: totalMembers },
+      employee: { total: totalEmployees },
+    };
+  }
 
   // ========== 大屏概览 ==========
   

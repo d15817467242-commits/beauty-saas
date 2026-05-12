@@ -29,9 +29,9 @@ export class CashierService {
     return `ME${year}${month}${day}${random}`;
   }
 
-  async create(dto: CreateConsumptionDto, userId: string): Promise<Consumption> {
+  async create(dto: CreateConsumptionDto, userId: string, storeId?: string): Promise<Consumption> {
     const orderNo = this.generateOrderNo();
-    
+
     let member = null;
     if (dto.memberId) {
       member = await this.memberService.findOne(dto.memberId);
@@ -41,13 +41,14 @@ export class CashierService {
     let totalAmount = 0;
     let totalCommission = 0;
     const processedItems: ConsumptionItem[] = [];
-    
+
     for (const item of dto.items) {
       const service = await this.serviceService.findOne(item.serviceId);
-      const price = member ? (service.memberPrice || service.price) : service.price;
-      const amount = price * item.quantity;
+      // 优先使用前端传来的价格（已含会员价），否则用会员价或原价
+      const price = item.price || (member ? (service.memberPrice || service.price) : service.price);
+      const amount = item.amount || (price * item.quantity);
       totalAmount += amount;
-      
+
       let employeeName: string | undefined;
       // 计算提成
       if (item.employeeId) {
@@ -55,7 +56,7 @@ export class CashierService {
         totalCommission += commission;
         employeeName = (await this.employeeService.findOne(item.employeeId)).name;
       }
-      
+
       processedItems.push({
         serviceId: item.serviceId,
         serviceName: service.name,
@@ -67,12 +68,16 @@ export class CashierService {
       });
     }
 
+    // 前端传来的 actualAmount 已含折扣计算
+    const actualAmount = dto.actualAmount || totalAmount;
+    const discountAmount = totalAmount - actualAmount;
+
     // 会员卡支付处理
     if (dto.paymentMethod === PaymentMethod.CARD && member && dto.memberId) {
-      if (Number(member.balance) < totalAmount) {
+      if (Number(member.balance) < actualAmount) {
         throw new BadRequestException('会员余额不足');
       }
-      await this.memberService.consume(dto.memberId, totalAmount);
+      await this.memberService.consume(dto.memberId, actualAmount);
     }
 
     // 更新员工业绩
@@ -86,22 +91,41 @@ export class CashierService {
 
     const consumption = this.consumptionRepository.create({
       orderNo,
-      memberId: dto.memberId || undefined,
-      member: member || undefined,
+      storeId: storeId || null,
+      memberId: dto.memberId || null,
       consumptionType: dto.consumptionType || ConsumptionType.SERVICE,
       amount: totalAmount,
-      actualAmount: dto.actualAmount || totalAmount,
-      discountAmount: totalAmount - (dto.actualAmount || totalAmount),
+      actualAmount: actualAmount,
+      discountAmount: discountAmount,
       paymentMethod: dto.paymentMethod || PaymentMethod.CASH,
-      paymentDetail: dto.paymentDetail,
+      paymentDetail: dto.paymentDetail || null,
       items: processedItems,
-      employeeId: dto.employeeId,
-      remark: dto.remark,
+      employeeId: dto.employeeId || null,
+      remark: dto.remark || null,
       createdBy: userId,
       commission: totalCommission,
-    });
+      mergedTo: null,
+      cancelledAt: null,
+    } as Partial<Consumption>);
 
-    return this.consumptionRepository.save(consumption);
+    // SQLite: 对象/数组字段必须序列化为JSON字符串
+    const toSave = { ...consumption };
+    if (toSave.items && typeof toSave.items !== 'string') {
+      (toSave as any).items = JSON.stringify(toSave.items);
+    }
+    if (toSave.paymentDetail && typeof toSave.paymentDetail !== 'string') {
+      (toSave as any).paymentDetail = JSON.stringify(toSave.paymentDetail);
+    }
+
+    const saved = await this.consumptionRepository.save(toSave as Consumption);
+    // 返回时解析回对象
+    if (typeof saved.items === 'string') {
+      saved.items = JSON.parse(saved.items);
+    }
+    if (typeof saved.paymentDetail === 'string') {
+      saved.paymentDetail = JSON.parse(saved.paymentDetail);
+    }
+    return saved;
   }
 
   async findByDate(startDate: Date, endDate: Date): Promise<Consumption[]> {
@@ -153,6 +177,12 @@ export class CashierService {
 
     // 检查订单状态
     for (const order of orders) {
+      if (order.mergedTo) {
+        throw new BadRequestException(`订单 ${order.orderNo} 已合并到 ${order.mergedTo}，不能再次合并`);
+      }
+      if (order.cancelledAt) {
+        throw new BadRequestException(`订单 ${order.orderNo} 已取消，不能合并`);
+      }
       if (order.paymentMethod === PaymentMethod.CARD) {
         throw new BadRequestException(`订单 ${order.orderNo} 已使用会员卡支付，不能合并`);
       }
@@ -172,11 +202,12 @@ export class CashierService {
       totalActualAmount += Number(order.actualAmount);
       totalDiscountAmount += Number(order.discountAmount);
       totalCommission += Number(order.commission || 0);
-      
+
       if (order.items) {
-        allItems.push(...order.items);
+        const orderItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+        allItems.push(...orderItems);
       }
-      
+
       if (order.employeeId) {
         employeeIds.add(order.employeeId);
       }
@@ -185,78 +216,126 @@ export class CashierService {
     // 创建合并后的新订单
     const mergedOrder = this.consumptionRepository.create({
       orderNo: mergedOrderNo,
-      memberId: dto.memberId || orders[0].memberId,
+      memberId: dto.memberId || orders[0].memberId || null,
       consumptionType: ConsumptionType.SERVICE,
       amount: totalAmount,
       actualAmount: totalActualAmount,
       discountAmount: totalDiscountAmount,
       paymentMethod: dto.paymentMethod || PaymentMethod.MIXED,
       items: allItems,
-      employeeId: employeeIds.size === 1 ? Array.from(employeeIds)[0] : undefined,
+      employeeId: employeeIds.size === 1 ? Array.from(employeeIds)[0] : null,
       remark: dto.remark || `合并订单: ${orders.map(o => o.orderNo).join(', ')}`,
       createdBy: userId,
       commission: totalCommission,
-    });
+      mergedTo: null,
+      cancelledAt: null,
+    } as Partial<Consumption>);
 
-    const savedOrder = await this.consumptionRepository.save(mergedOrder);
+    // SQLite: 序列化对象字段
+    const toSave = { ...mergedOrder };
+    if (toSave.items && typeof toSave.items !== 'string') {
+      (toSave as any).items = JSON.stringify(toSave.items);
+    }
 
-    // 标记原订单为已合并（删除或标记）
+    const savedOrder = await this.consumptionRepository.save(toSave as Consumption);
+
+    // 标记原订单为已合并
     await this.consumptionRepository.update(
       { id: In(dto.orderIds) },
-      { remark: `已合并到订单: ${mergedOrderNo}` }
+      { mergedTo: mergedOrderNo }
     );
 
     return savedOrder;
   }
 
   // 单据查询
-  async queryDocuments(dto: DocumentQueryDto): Promise<{ data: Consumption[]; total: number; page: number; pageSize: number }> {
+  async queryDocuments(dto: DocumentQueryDto, storeId?: string): Promise<{ data: Consumption[]; total: number }> {
     const page = dto.page || 1;
     const pageSize = dto.pageSize || 20;
-    const skip = (page - 1) * pageSize;
 
-    const queryBuilder = this.consumptionRepository.createQueryBuilder('consumption')
-      .leftJoinAndSelect('consumption.member', 'member')
-      .leftJoinAndSelect('consumption.employee', 'employee');
+    // 先查总数
+    const countBuilder = this.consumptionRepository.createQueryBuilder('c')
+      .leftJoin('c.member', 'member')
+      .where('c.merged_to IS NULL')
+      .andWhere('c.cancelled_at IS NULL');
 
-    // 按类型筛选
-    if (dto.type) {
-      queryBuilder.andWhere('consumption.consumptionType = :type', { type: dto.type });
+    if (storeId) {
+      countBuilder.andWhere('c.store_id = :storeId', { storeId });
     }
 
-    // 按日期范围筛选
     if (dto.startDate) {
-      queryBuilder.andWhere('consumption.createdAt >= :startDate', { 
-        startDate: new Date(dto.startDate) 
-      });
+      countBuilder.andWhere('date(c.created_at) >= date(:sd)', { sd: dto.startDate });
     }
     if (dto.endDate) {
-      const endDate = new Date(dto.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      queryBuilder.andWhere('consumption.createdAt <= :endDate', { endDate });
+      countBuilder.andWhere('date(c.created_at) <= date(:ed)', { ed: dto.endDate });
     }
-
-    // 按会员筛选
-    if (dto.memberId) {
-      queryBuilder.andWhere('consumption.memberId = :memberId', { memberId: dto.memberId });
-    }
-
-    // 关键词搜索
     if (dto.keyword) {
-      queryBuilder.andWhere(
-        '(consumption.orderNo LIKE :keyword OR member.name LIKE :keyword OR member.phone LIKE :keyword)',
-        { keyword: `%${dto.keyword}%` }
-      );
+      countBuilder.andWhere('(c.order_no LIKE :kw OR member.name LIKE :kw OR member.phone LIKE :kw)', { kw: `%${dto.keyword}%` });
+    }
+    if (dto.orderNo) {
+      countBuilder.andWhere('c.order_no LIKE :on', { on: `%${dto.orderNo}%` });
+    }
+    if (dto.memberKeyword) {
+      countBuilder.andWhere('(member.name LIKE :mk OR member.phone LIKE :mk)', { mk: `%${dto.memberKeyword}%` });
+    }
+    if (dto.paymentMethod) {
+      countBuilder.andWhere('c.payment_method = :pm', { pm: dto.paymentMethod });
+    }
+    if (dto.status) {
+      countBuilder.andWhere('c.review_status = :rs', { rs: dto.status });
     }
 
-    queryBuilder
-      .orderBy('consumption.createdAt', 'DESC')
-      .skip(skip)
-      .take(pageSize);
+    const total = await countBuilder.getCount();
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    // 再查数据
+    const dataBuilder = this.consumptionRepository.createQueryBuilder('c')
+      .leftJoinAndSelect('c.member', 'member')
+      .leftJoinAndSelect('c.employee', 'employee')
+      .where('c.merged_to IS NULL')
+      .andWhere('c.cancelled_at IS NULL');
 
-    return { data, total, page, pageSize };
+    if (storeId) {
+      dataBuilder.andWhere('c.store_id = :storeId2', { storeId2: storeId });
+    }
+
+    if (dto.startDate) {
+      dataBuilder.andWhere('date(c.created_at) >= date(:sd)', { sd: dto.startDate });
+    }
+    if (dto.endDate) {
+      dataBuilder.andWhere('date(c.created_at) <= date(:ed)', { ed: dto.endDate });
+    }
+    if (dto.keyword) {
+      dataBuilder.andWhere('(c.order_no LIKE :kw OR member.name LIKE :kw OR member.phone LIKE :kw)', { kw: `%${dto.keyword}%` });
+    }
+    if (dto.orderNo) {
+      dataBuilder.andWhere('c.order_no LIKE :on', { on: `%${dto.orderNo}%` });
+    }
+    if (dto.memberKeyword) {
+      dataBuilder.andWhere('(member.name LIKE :mk OR member.phone LIKE :mk)', { mk: `%${dto.memberKeyword}%` });
+    }
+    if (dto.paymentMethod) {
+      dataBuilder.andWhere('c.payment_method = :pm', { pm: dto.paymentMethod });
+    }
+    if (dto.status) {
+      dataBuilder.andWhere('c.review_status = :rs', { rs: dto.status });
+    }
+
+    const data = await dataBuilder
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+
+    // 解析items和paymentDetail JSON字符串
+    for (const item of data) {
+      if (typeof item.items === 'string') {
+        try { item.items = JSON.parse(item.items); } catch { item.items = []; }
+      }
+      if (typeof item.paymentDetail === 'string') {
+        try { item.paymentDetail = JSON.parse(item.paymentDetail); } catch { item.paymentDetail = {} as any; }
+      }
+    }
+
+    return { data, total };
   }
 
   // 开卡入口
@@ -292,17 +371,26 @@ export class CashierService {
       consumption = this.consumptionRepository.create({
         orderNo,
         memberId: member.id,
-        member: member,
         consumptionType: ConsumptionType.RECHARGE,
         amount: dto.rechargeAmount,
         actualAmount: dto.rechargeAmount,
         discountAmount: 0,
         paymentMethod: dto.paymentMethod || PaymentMethod.CASH,
         items: [],
-        employeeId: dto.employeeId,
+        employeeId: dto.employeeId || null,
         remark: dto.remark || '开卡充值',
         createdBy: userId,
-      });
+        mergedTo: null,
+        cancelledAt: null,
+      } as Partial<Consumption>);
+
+      // SQLite: 序列化对象字段
+      const toSave = { ...consumption };
+      if (toSave.items && typeof toSave.items !== 'string') {
+        (toSave as any).items = JSON.stringify(toSave.items);
+      }
+
+      await this.consumptionRepository.save(toSave as Consumption);
 
       await this.consumptionRepository.save(consumption);
 
@@ -332,15 +420,144 @@ export class CashierService {
     const order = await this.getOrderDetail(orderNo);
 
     // 检查是否可以取消
+    if (order.mergedTo) {
+      throw new BadRequestException('已合并的订单不能取消');
+    }
+    if (order.cancelledAt) {
+      throw new BadRequestException('订单已取消');
+    }
+
+    // 会员卡支付退款到会员卡
     if (order.paymentMethod === PaymentMethod.CARD && order.memberId) {
-      // 退款到会员卡
       await this.memberService.recharge(order.memberId, Number(order.actualAmount));
     }
 
-    // 软删除或标记
+    order.cancelledAt = new Date().toISOString();
     order.remark = `${order.remark || ''} [已取消 by ${userId}]`;
-    
-    return this.consumptionRepository.save(order);
+
+    const saved = await this.consumptionRepository.save(order);
+    if (typeof saved.items === 'string') {
+      try { saved.items = JSON.parse(saved.items); } catch { saved.items = []; }
+    }
+    if (typeof saved.paymentDetail === 'string') {
+      try { saved.paymentDetail = JSON.parse(saved.paymentDetail); } catch { saved.paymentDetail = {} as any; }
+    }
+    return saved;
+  }
+
+  // 审核订单
+  async reviewOrder(orderNo: string, userId: string, userRole: string): Promise<Consumption> {
+    const order = await this.getOrderDetail(orderNo);
+
+    if (order.cancelledAt) {
+      throw new BadRequestException('已取消的订单不能审核');
+    }
+    if (order.mergedTo) {
+      throw new BadRequestException('已合并的订单不能审核');
+    }
+    if (order.reviewStatus === 'reviewed') {
+      throw new BadRequestException('订单已审核，不能重复审核');
+    }
+
+    // 只有店长或管理员可以审核
+    if (userRole !== 'admin' && userRole !== 'manager') {
+      throw new BadRequestException('只有店长或管理员可以审核订单');
+    }
+
+    order.reviewStatus = 'reviewed';
+    order.reviewedBy = userId;
+    order.reviewedAt = new Date().toISOString();
+
+    const saved = await this.consumptionRepository.save(order);
+    if (typeof saved.items === 'string') {
+      try { saved.items = JSON.parse(saved.items); } catch { saved.items = []; }
+    }
+    if (typeof saved.paymentDetail === 'string') {
+      try { saved.paymentDetail = JSON.parse(saved.paymentDetail); } catch { saved.paymentDetail = {} as any; }
+    }
+    return saved;
+  }
+
+  // 修改订单
+  async updateOrder(orderNo: string, dto: any, userId: string, userRole: string): Promise<Consumption> {
+    const order = await this.getOrderDetail(orderNo);
+
+    if (order.cancelledAt) {
+      throw new BadRequestException('已取消的订单不能修改');
+    }
+    if (order.mergedTo) {
+      throw new BadRequestException('已合并的订单不能修改');
+    }
+
+    // 收银员只能修改未审核的订单，店长/管理员可以修改任何订单
+    if (order.reviewStatus === 'reviewed' && userRole !== 'admin' && userRole !== 'manager') {
+      throw new BadRequestException('已审核的订单只有店长或管理员可以修改');
+    }
+
+    // 允许修改的字段
+    const allowedFields = ['remark', 'manualOrderNo', 'employeeId', 'items', 'actualAmount', 'discountAmount', 'discountType', 'paymentMethod', 'paymentDetail'];
+    const updateData: Partial<Consumption> = {};
+
+    for (const field of allowedFields) {
+      if (dto[field] !== undefined) {
+        (updateData as any)[field] = dto[field];
+      }
+    }
+
+    // SQLite: 序列化对象字段
+    if (updateData.items && typeof updateData.items !== 'string') {
+      (updateData as any).items = JSON.stringify(updateData.items);
+    }
+    if (updateData.paymentDetail && typeof updateData.paymentDetail !== 'string') {
+      (updateData as any).paymentDetail = JSON.stringify(updateData.paymentDetail);
+    }
+
+    // 如果修改了金额相关字段，重新计算
+    if (dto.items) {
+      const processedItems: ConsumptionItem[] = [];
+      let totalAmount = 0;
+
+      for (const item of dto.items) {
+        const service = await this.serviceService.findOne(item.serviceId);
+        const price = item.price || service.price;
+        const amount = item.amount || (price * item.quantity);
+        totalAmount += amount;
+
+        let employeeName: string | undefined;
+        if (item.employeeId) {
+          employeeName = (await this.employeeService.findOne(item.employeeId)).name;
+        }
+
+        processedItems.push({
+          serviceId: item.serviceId,
+          serviceName: service.name,
+          price,
+          quantity: item.quantity,
+          amount,
+          employeeId: item.employeeId,
+          employeeName,
+        });
+      }
+
+      (updateData as any).items = JSON.stringify(processedItems);
+      (updateData as any).amount = totalAmount;
+
+      if (dto.actualAmount !== undefined) {
+        (updateData as any).discountAmount = totalAmount - dto.actualAmount;
+      }
+    }
+
+    await this.consumptionRepository.update(order.id, updateData);
+
+    const updated = await this.getOrderDetail(orderNo);
+    // 解析JSON字段
+    if (typeof updated.items === 'string') {
+      try { updated.items = JSON.parse(updated.items); } catch { updated.items = []; }
+    }
+    if (typeof updated.paymentDetail === 'string') {
+      try { updated.paymentDetail = JSON.parse(updated.paymentDetail); } catch { updated.paymentDetail = {} as any; }
+    }
+    return updated;
   }
 
   // 获取商品列表

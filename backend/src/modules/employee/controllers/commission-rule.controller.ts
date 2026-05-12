@@ -14,10 +14,13 @@ export class CommissionRuleController {
 
   @Get()
   findAll(
-    @Query('isActive') isActive?: boolean,
+    @Query('isActive') isActive?: string,
     @Query('ruleType') ruleType?: CommissionRuleType,
   ) {
-    return this.service.findAll(isActive, ruleType);
+    return this.service.findAll({
+      isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      ruleType,
+    });
   }
 
   @Get(':id')

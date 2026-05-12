@@ -28,14 +28,11 @@ export class EmployeeService {
     return this.employeeRepository.save(employee);
   }
 
-  async findAll(status?: EmployeeStatus): Promise<Employee[]> {
-    const query = this.employeeRepository.createQueryBuilder('employee');
-    
-    if (status) {
-      query.where('employee.status = :status', { status });
-    }
-    
-    return query.orderBy('employee.createdAt', 'DESC').getMany();
+  async findAll(storeId?: string, status?: EmployeeStatus): Promise<Employee[]> {
+    const where: any = {};
+    if (storeId) where.storeId = storeId;
+    if (status) where.status = status;
+    return this.employeeRepository.find({ where, order: { createdAt: 'DESC' } });
   }
 
   async findOne(id: string): Promise<Employee> {

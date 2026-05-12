@@ -29,6 +29,7 @@ import { MemberTaskService } from './member-task.service';
 import { MarketingAnalysisService } from './marketing-analysis.service';
 
 import { MarketingController } from './marketing.controller';
+import { MarketingAnalysisController } from './marketing-analysis.controller';
 
 @Module({
   imports: [
@@ -63,7 +64,7 @@ import { MarketingController } from './marketing.controller';
       TaskStatistics,
     ]),
   ],
-  controllers: [MarketingController],
+  controllers: [MarketingController, MarketingAnalysisController],
   providers: [
     // 现有服务
     CouponService,

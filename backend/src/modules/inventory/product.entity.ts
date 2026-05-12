@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 
 @Entity('products')
@@ -30,11 +30,14 @@ export class Product extends BaseEntity {
   @Column({ nullable: true, comment: '供应商' })
   supplier: string;
 
-  @Column({ type: 'text', default: true, name: 'is_active', comment: '是否启用' })
+  @Column({ type: 'boolean', default: true, name: 'is_active', comment: '是否启用' })
   isActive: boolean;
 
   @Column({ nullable: true, comment: '备注' })
   remark: string;
+
+  @OneToMany(() => ProductStock, stock => stock.product)
+  stock: ProductStock[];
 }
 
 @Entity('product_stocks')
@@ -66,8 +69,8 @@ export enum StockMovementType {
   RETURN = 'return',   // 退货
 }
 
-@Entity('stock_movements')
-export class StockMovement extends BaseEntity {
+@Entity('product_stock_movements')
+export class ProductStockMovement extends BaseEntity {
   @Column({ type: 'uuid', name: 'product_id', comment: '产品ID' })
   productId: string;
 

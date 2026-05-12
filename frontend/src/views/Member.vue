@@ -4,10 +4,21 @@
       <template #header>
         <div class="card-header">
           <span>会员管理</span>
-          <el-button type="primary" @click="handleAdd">新增会员</el-button>
+          <div class="header-actions">
+            <el-input v-model="searchKeyword" placeholder="搜索姓名/手机号" clearable style="width: 240px; margin-right: 12px;" @keyup.enter="loadMembers" @clear="loadMembers">
+              <template #prefix><el-icon><Search /></el-icon></template>
+            </el-input>
+            <el-select v-model="searchLevel" placeholder="会员等级" clearable style="width: 140px; margin-right: 12px;" @change="loadMembers">
+              <el-option label="普通会员" value="normal" />
+              <el-option label="银卡会员" value="silver" />
+              <el-option label="金卡会员" value="gold" />
+              <el-option label="钻石会员" value="diamond" />
+            </el-select>
+            <el-button type="primary" @click="handleAdd" v-if="userStore.canCreate">新增会员</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="memberList" v-loading="loading" stripe>
+      <el-table :data="memberList" v-loading="loading" stripe @row-click="handleDetail" style="cursor: pointer;">
         <el-table-column prop="name" label="姓名" />
         <el-table-column prop="phone" label="手机号" />
         <el-table-column prop="level" label="会员等级">
@@ -37,12 +48,12 @@
             {{ row.lastVisitAt ? new Date(row.lastVisitAt).toLocaleDateString() : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="320">
+        <el-table-column label="操作" width="280">
           <template #default="{ row }">
-            <el-button size="small" @click="handleDetail(row)">详情</el-button>
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="success" @click="handleRecharge(row)">充值</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" type="primary" @click.stop="handleDetail(row)">查看资料</el-button>
+            <el-button size="small" @click.stop="handleEdit(row)" v-if="userStore.canEdit">编辑</el-button>
+            <el-button size="small" type="success" @click.stop="handleRecharge(row)" v-if="userStore.canCashier">充值</el-button>
+            <el-button size="small" type="danger" @click.stop="handleDelete(row)" v-if="userStore.canDelete">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -139,7 +150,7 @@
           </el-descriptions>
 
           <el-divider>消费记录</el-divider>
-          
+
           <el-table :data="memberConsumptions" v-loading="consumptionsLoading" size="small" max-height="300">
             <el-table-column prop="orderNo" label="订单号" width="180" />
             <el-table-column prop="createdAt" label="时间" width="160">
@@ -178,16 +189,16 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 会员画像 -->
+        <!-- 会员画像 - 懒加载 -->
         <el-tab-pane label="会员画像" name="profile">
-          <MemberProfile v-if="memberDetail" :member-id="memberDetail.id" />
+          <MemberProfile v-if="detailTab === 'profile' && memberDetail" :member-id="memberDetail.id" />
         </el-tab-pane>
 
-        <!-- 推荐关系 -->
+        <!-- 推荐关系 - 懒加载 -->
         <el-tab-pane label="推荐关系" name="referral">
-          <MemberReferral 
-            v-if="memberDetail" 
-            :member-id="memberDetail.id" 
+          <MemberReferral
+            v-if="detailTab === 'referral' && memberDetail"
+            :member-id="memberDetail.id"
             @view-member="handleViewMember"
           />
         </el-tab-pane>
@@ -199,11 +210,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
+import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 import MemberProfile from '@/components/member/MemberProfile.vue'
 import MemberReferral from '@/components/member/MemberReferral.vue'
 
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+const userStore = useUserStore()
 
 const levelMap: Record<string, { label: string; type: string }> = {
   normal: { label: '普通会员', type: 'info' },
@@ -228,6 +241,8 @@ const paymentMethodMap: Record<string, string> = {
 }
 
 const loading = ref(false)
+const searchKeyword = ref('')
+const searchLevel = ref('')
 const submitting = ref(false)
 const rechargeSubmitting = ref(false)
 const consumptionsLoading = ref(false)
@@ -271,10 +286,11 @@ const resetForm = () => {
 const loadMembers = async () => {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/members`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberList.value = await res.json()
+    const params: any = {}
+    if (searchKeyword.value) params.keyword = searchKeyword.value
+    if (searchLevel.value) params.level = searchLevel.value
+    const res = await request.get('/members', { params })
+    memberList.value = Array.isArray(res) ? res : (res.data || res.items || [])
   } catch (e) {
     ElMessage.error('加载失败')
   } finally {
@@ -307,13 +323,11 @@ const handleDetail = async (row: any) => {
   detailTab.value = 'basic'
   detailVisible.value = true
   consumptionsLoading.value = true
-  
+
   try {
-    const res = await fetch(`${API_BASE}/members/${row.id}/detail`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberDetail.value = await res.json()
-    memberConsumptions.value = memberDetail.value.consumptions || []
+    const res = await request.get(`/members/${row.id}/detail`)
+    memberDetail.value = res
+    memberConsumptions.value = res.consumptions || []
   } catch (e) {
     ElMessage.error('加载详情失败')
   } finally {
@@ -337,16 +351,9 @@ const handleRecharge = (row: any) => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该会员吗？', '提示', { type: 'warning' })
-    const res = await fetch(`${API_BASE}/members/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('删除成功')
-      loadMembers()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await request.delete(`/members/${row.id}`)
+    ElMessage.success('删除成功')
+    loadMembers()
   } catch (e) {}
 }
 
@@ -357,26 +364,17 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    const url = isEdit.value ? `${API_BASE}/members/${editId.value}` : `${API_BASE}/members`
-    const method = isEdit.value ? 'PATCH' : 'POST'
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(form.value)
-    })
-    if (res.ok) {
-      ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
-      dialogVisible.value = false
-      loadMembers()
+    if (isEdit.value) {
+      await request.patch(`/members/${editId.value}`, form.value)
+      ElMessage.success('修改成功')
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/members', form.value)
+      ElMessage.success('添加成功')
     }
+    dialogVisible.value = false
+    loadMembers()
   } catch (e) {
-    ElMessage.error('网络错误')
+    console.error(e)
   } finally {
     submitting.value = false
   }
@@ -389,28 +387,16 @@ const handleRechargeSubmit = async () => {
   }
   rechargeSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/members/${currentMember.value.id}/recharge`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        amount: rechargeForm.value.amount,
-        giftAmount: rechargeForm.value.giftAmount,
-        paymentMethod: rechargeForm.value.paymentMethod
-      })
+    await request.post(`/members/${currentMember.value.id}/recharge`, {
+      amount: rechargeForm.value.amount,
+      giftAmount: rechargeForm.value.giftAmount,
+      paymentMethod: rechargeForm.value.paymentMethod
     })
-    if (res.ok) {
-      ElMessage.success('充值成功')
-      rechargeVisible.value = false
-      loadMembers()
-    } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '充值失败')
-    }
+    ElMessage.success('充值成功')
+    rechargeVisible.value = false
+    loadMembers()
   } catch (e) {
-    ElMessage.error('网络错误')
+    console.error(e)
   } finally {
     rechargeSubmitting.value = false
   }
@@ -427,6 +413,11 @@ onMounted(loadMembers)
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
   align-items: center;
 }
 </style>

@@ -46,7 +46,13 @@
                     <el-tag v-else size="small" type="success">服务</el-tag>
                     {{ service.name }}
                   </div>
-                  <div class="service-price">¥{{ service.price }}</div>
+                  <div class="service-price">
+                    <span v-if="service.memberPrice && service.memberPrice < service.price">
+                      <span class="original-price">¥{{ service.price }}</span>
+                      <span class="member-price">¥{{ service.memberPrice }}</span>
+                    </span>
+                    <span v-else>¥{{ service.price }}</span>
+                  </div>
                 </div>
                 <div v-if="selectedServices.find(s => s.id === service.id)" class="service-count">
                   x{{ selectedServices.find(s => s.id === service.id)?.quantity || 1 }}
@@ -92,8 +98,16 @@
               
               <!-- 折扣输入 -->
               <el-form-item label="折扣">
-                <el-input-number v-model="discount" :min="0" :max="100" :step="1" style="width: 100%" />
-                <span style="margin-left: 5px">%</span>
+                <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+                  <el-input-number v-model="discount" :min="1" :max="100" :step="1" style="flex: 1" @change="onDiscountChange" />
+                  <span>%</span>
+                  <el-tag v-if="discountSource === 'member' && memberDiscountRate" size="small" type="success">
+                    会员{{ memberDiscountRate }}折
+                  </el-tag>
+                  <el-tag v-else-if="discount < 100" size="small" type="warning">
+                    手动折扣
+                  </el-tag>
+                </div>
               </el-form-item>
               
               <!-- 手工单号 -->
@@ -128,7 +142,12 @@
               <div v-for="item in selectedServices" :key="item.id" class="selected-item">
                 <span>{{ item.name }}</span>
                 <span>x{{ item.quantity }}</span>
-                <span v-if="paymentMethod !== 'count_card'">¥{{ item.price * item.quantity }}</span>
+                <span v-if="paymentMethod !== 'count_card'">
+                  <span v-if="item.originalPrice && item.originalPrice > item.price" style="color: #909399; font-size: 12px;">
+                    ¥{{ item.originalPrice * item.quantity }}
+                  </span>
+                  <span style="color: #f56c6c;">¥{{ item.price * item.quantity }}</span>
+                </span>
                 <span v-else>{{ item.quantity }}次</span>
               </div>
             </div>
@@ -158,18 +177,67 @@
 
     <!-- 会员选择对话框 -->
     <el-dialog v-model="showMemberDialog" title="选择会员" width="700px">
-      <el-input v-model="memberSearchPhone" placeholder="输入手机号搜索" @input="searchMember" />
-      <el-table :data="memberList" style="margin-top: 15px" @row-click="selectMember">
-        <el-table-column prop="name" label="姓名" />
-        <el-table-column prop="phone" label="手机号" />
-        <el-table-column prop="balance" label="余额">
+      <el-input v-model="memberSearchKeyword" placeholder="输入姓名或手机号搜索" clearable @input="searchMember">
+        <template #prefix>
+          <el-icon><Search /></el-icon>
+        </template>
+      </el-input>
+      <div style="margin-top: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: #909399; font-size: 12px;">{{ memberList.length ? `找到 ${memberList.length} 位会员` : '请输入关键词搜索' }}</span>
+        <el-button size="small" type="primary" link @click="showQuickAddMember = true">快速新增会员</el-button>
+      </div>
+      <el-table :data="memberList" style="margin-top: 5px" @row-click="selectMember" highlight-current-row>
+        <el-table-column prop="name" label="姓名" width="100" />
+        <el-table-column prop="phone" label="手机号" width="130" />
+        <el-table-column prop="level" label="等级" width="80">
+          <template #default="{ row }">
+            <el-tag size="small">{{ row.level || '普通' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="balance" label="余额" width="100">
           <template #default="{ row }">
             ¥{{ row.balance }}
           </template>
         </el-table-column>
+        <el-table-column label="最近到店" width="120">
+          <template #default="{ row }">
+            {{ row.lastVisitAt ? new Date(row.lastVisitAt).toLocaleDateString() : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="次卡">
           <template #default="{ row }">
-            <el-button size="small" @click.stop="showMemberCountCards(row)">查看次卡</el-button>
+            <el-button size="small" @click.stop="showMemberCountCards(row)">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 快速新增会员对话框 -->
+    <el-dialog v-model="showQuickAddMember" title="快速新增会员" width="400px" append-to-body>
+      <el-form label-width="80px">
+        <el-form-item label="姓名" required>
+          <el-input v-model="quickAddMember.name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input v-model="quickAddMember.phone" placeholder="请输入手机号" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showQuickAddMember = false">取消</el-button>
+        <el-button type="primary" :loading="quickAddLoading" @click="handleQuickAddMember">确认新增</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 开卡专用会员选择对话框 -->
+    <el-dialog v-model="showOpenCardMemberDialog" title="选择会员（开卡）" width="700px">
+      <el-input v-model="openCardMemberSearch" placeholder="输入姓名或手机号搜索" clearable @input="searchOpenCardMember" />
+      <el-table :data="openCardMemberList" style="margin-top: 15px" @row-click="selectOpenCardMember">
+        <el-table-column prop="name" label="姓名" />
+        <el-table-column prop="phone" label="手机号" />
+        <el-table-column prop="level" label="等级" />
+        <el-table-column prop="balance" label="余额">
+          <template #default="{ row }">
+            ¥{{ row.balance }}
           </template>
         </el-table-column>
       </el-table>
@@ -202,13 +270,27 @@
     <!-- 开卡对话框 -->
     <el-dialog v-model="showOpenCard" title="会员开卡" width="600px">
       <el-form :model="openCardForm" label-width="100px">
-        <el-form-item label="选择会员">
-          <el-input v-model="openCardForm.memberName" placeholder="选择会员" readonly @click="showMemberDialog = true">
+        <el-form-item label="开卡方式">
+          <el-radio-group v-model="openCardForm.mode">
+            <el-radio value="existing">已有会员</el-radio>
+            <el-radio value="new">新客户开卡</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="openCardForm.mode === 'existing'" label="选择会员">
+          <el-input v-model="openCardForm.memberName" placeholder="选择会员" readonly @click="showOpenCardMemberDialog = true">
             <template #append>
-              <el-button @click="showMemberDialog = true">选择</el-button>
+              <el-button @click="showOpenCardMemberDialog = true">选择</el-button>
             </template>
           </el-input>
         </el-form-item>
+        <template v-if="openCardForm.mode === 'new'">
+          <el-form-item label="姓名" required>
+            <el-input v-model="openCardForm.newName" placeholder="请输入客户姓名" />
+          </el-form-item>
+          <el-form-item label="手机号">
+            <el-input v-model="openCardForm.newPhone" placeholder="请输入手机号" />
+          </el-form-item>
+        </template>
         <el-form-item label="卡类型">
           <el-select v-model="openCardForm.cardType" placeholder="选择卡类型" style="width: 100%">
             <el-option label="储值卡" value="stored" />
@@ -246,8 +328,8 @@
         <el-form-item label="日期">
           <el-date-picker v-model="mergeDateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
         </el-form-item>
-        <el-form-item label="会员">
-          <el-input v-model="mergeMemberKeyword" placeholder="会员手机号" />
+        <el-form-item label="关键词">
+          <el-input v-model="mergeKeyword" placeholder="订单号/会员姓名/手机号" clearable />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="searchMergeOrders">搜索</el-button>
@@ -256,20 +338,26 @@
       <el-table ref="mergeOrderTableRef" :data="mergeOrderList" @selection-change="handleMergeSelectionChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="orderNo" label="订单号" width="150" />
-        <el-table-column prop="memberName" label="会员" width="100" />
-        <el-table-column prop="totalAmount" label="金额" width="100">
+        <el-table-column label="会员" width="100">
           <template #default="{ row }">
-            ¥{{ row.totalAmount }}
+            {{ row.member?.name || '散客' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="时间" width="180">
+        <el-table-column label="金额" width="100">
+          <template #default="{ row }">
+            ¥{{ row.actualAmount }}
+          </template>
+        </el-table-column>
+        <el-table-column label="时间" width="180">
           <template #default="{ row }">
             {{ new Date(row.createdAt).toLocaleString() }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'paid' ? 'success' : 'info'">{{ row.status === 'paid' ? '已支付' : '待支付' }}</el-tag>
+            <el-tag v-if="row.mergedTo" type="warning">已合并</el-tag>
+            <el-tag v-else-if="row.cancelledAt" type="danger">已取消</el-tag>
+            <el-tag v-else type="success">正常</el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -289,7 +377,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -317,11 +405,14 @@ const walkinName = ref('')
 const selectedEmployee = ref('')
 const selectedWarehouse = ref('')
 const discount = ref(100)
+const memberDiscountRate = ref<number | null>(null)
+const discountSource = ref<'member' | 'manual'>('manual')
 const manualOrderNo = ref('')
 const paymentMethod = ref('cash')
 const selectedServices = ref<any[]>([])
 const showMemberDialog = ref(false)
-const memberSearchPhone = ref('')
+const memberSearchKeyword = ref('')
+let memberSearchTimer: ReturnType<typeof setTimeout> | null = null
 const submitting = ref(false)
 const selectedCountCard = ref('')
 const showCountCardDialog = ref(false)
@@ -330,9 +421,16 @@ const countCardLoading = ref(false)
 // 开卡相关
 const showOpenCard = ref(false)
 const openCardSubmitting = ref(false)
+const showOpenCardMemberDialog = ref(false)
+const openCardMemberSearch = ref('')
+const openCardMemberList = ref<any[]>([])
+let openCardSearchTimer: ReturnType<typeof setTimeout> | null = null
 const openCardForm = ref({
+  mode: 'new' as 'existing' | 'new',
   memberId: '',
   memberName: '',
+  newName: '',
+  newPhone: '',
   cardType: 'stored',
   packageId: '',
   amount: 0,
@@ -343,7 +441,7 @@ const openCardForm = ref({
 // 合单相关
 const showMergeOrder = ref(false)
 const mergeDateRange = ref<[Date, Date] | null>(null)
-const mergeMemberKeyword = ref('')
+const mergeKeyword = ref('')
 const mergeOrderList = ref<any[]>([])
 const selectedMergeOrders = ref<any[]>([])
 const mergeSubmitting = ref(false)
@@ -353,6 +451,11 @@ const countCardStatusMap: Record<string, { label: string; type: string }> = {
   expired: { label: '已过期', type: 'danger' },
   used_up: { label: '已用完', type: 'info' }
 }
+
+// 快速新增会员
+const showQuickAddMember = ref(false)
+const quickAddLoading = ref(false)
+const quickAddMember = ref({ name: '', phone: '' })
 
 // 计算属性
 const filteredServices = computed(() => {
@@ -380,7 +483,7 @@ const totalCount = computed(() => {
 })
 
 const mergeTotalAmount = computed(() => {
-  return selectedMergeOrders.value.reduce((sum, order) => sum + order.totalAmount, 0)
+  return selectedMergeOrders.value.reduce((sum, order) => sum + Number(order.actualAmount || order.amount || 0), 0)
 })
 
 // 方法
@@ -393,7 +496,16 @@ const toggleService = (service: any) => {
   if (existing) {
     existing.quantity++
   } else {
-    selectedServices.value.push({ ...service, quantity: 1 })
+    // 选了会员时自动使用会员价
+    const usePrice = (selectedMember.value && service.memberPrice && service.memberPrice > 0 && service.memberPrice < service.price)
+      ? service.memberPrice
+      : service.price
+    selectedServices.value.push({
+      ...service,
+      price: usePrice,
+      originalPrice: service.price,
+      quantity: 1
+    })
   }
 }
 
@@ -403,6 +515,13 @@ const handleCustomerTypeChange = () => {
   walkinName.value = ''
   availableCountCards.value = []
   selectedCountCard.value = ''
+  // 切换为散客时恢复原价和折扣
+  if (customerType.value === 'walkin') {
+    restoreOriginalPrice()
+    discount.value = 100
+    memberDiscountRate.value = null
+    discountSource.value = 'manual'
+  }
   if (paymentMethod.value === 'card' && customerType.value === 'walkin') {
     paymentMethod.value = 'cash'
   }
@@ -433,17 +552,57 @@ const handleCountCardChange = () => {
   // 次卡选择变化时的处理
 }
 
-const searchMember = async () => {
-  if (memberSearchPhone.value.length >= 3) {
+const searchMember = () => {
+  if (memberSearchTimer) clearTimeout(memberSearchTimer)
+  memberSearchTimer = setTimeout(async () => {
+    if (memberSearchKeyword.value.length < 1) {
+      memberList.value = []
+      return
+    }
     try {
-      const res = await fetch(`${API_BASE}/members?keyword=${memberSearchPhone.value}`, {
+      const res = await fetch(`${API_BASE}/members?keyword=${memberSearchKeyword.value}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      const data = await res.json()
-      memberList.value = data
+      memberList.value = await res.json()
     } catch (e) {
       console.error(e)
     }
+  }, 300)
+}
+
+const handleQuickAddMember = async () => {
+  if (!quickAddMember.value.name) {
+    ElMessage.warning('请输入姓名')
+    return
+  }
+  quickAddLoading.value = true
+  try {
+    const res = await fetch(`${API_BASE}/members`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        name: quickAddMember.value.name,
+        phone: quickAddMember.value.phone || undefined,
+      })
+    })
+    if (res.ok) {
+      const newMember = await res.json()
+      ElMessage.success('会员创建成功')
+      // 自动选中新会员
+      selectMember(newMember)
+      showQuickAddMember.value = false
+      quickAddMember.value = { name: '', phone: '' }
+    } else {
+      const err = await res.json()
+      ElMessage.error(err.message || '创建失败')
+    }
+  } catch (e) {
+    ElMessage.error('网络错误')
+  } finally {
+    quickAddLoading.value = false
   }
 }
 
@@ -453,7 +612,33 @@ const selectMember = async (row: any) => {
   openCardForm.value.memberId = row.id
   openCardForm.value.memberName = `${row.name} (${row.phone})`
   showMemberDialog.value = false
-  
+
+  // 自动加载会员等级折扣
+  try {
+    const levelRes = await fetch(`${API_BASE}/member-levels/member/${row.id}/level-info`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (levelRes.ok) {
+      const levelInfo = await levelRes.json()
+      if (levelInfo.currentLevel?.discountRate) {
+        // discountRate 如 0.95 表示95折，转换为百分比
+        memberDiscountRate.value = Math.round(levelInfo.currentLevel.discountRate * 100)
+        discount.value = memberDiscountRate.value
+        discountSource.value = 'member'
+      } else {
+        // 没有等级折扣率，保持100%
+        memberDiscountRate.value = null
+        discount.value = 100
+        discountSource.value = 'manual'
+      }
+    }
+  } catch (e) {
+    console.error('加载会员等级失败', e)
+  }
+
+  // 已选服务项目自动切换为会员价
+  applyMemberPrice()
+
   // 如果支付方式是次卡，加载可用次卡
   if (paymentMethod.value === 'count_card') {
     await loadAvailableCountCards()
@@ -480,7 +665,7 @@ const handleSubmit = async () => {
     ElMessage.warning('请先选择服务项目')
     return
   }
-  
+
   if (customerType.value === 'member' && !selectedMember.value) {
     ElMessage.warning('请选择会员')
     return
@@ -491,6 +676,26 @@ const handleSubmit = async () => {
     return
   }
 
+  // 收款确认弹窗
+  try {
+    let confirmMsg = ''
+    if (paymentMethod.value === 'count_card') {
+      confirmMsg = `确认使用次卡消费 ${totalCount.value} 次吗？`
+    } else {
+      confirmMsg = `确认收款 ¥${finalAmount.value}？`
+      if (discount.value < 100) {
+        confirmMsg += `\n（原价 ¥${totalAmount.value}，${discountSource.value === 'member' ? '会员' : '手动'}${discount.value}%折）`
+      }
+    }
+    await ElMessageBox.confirm(confirmMsg, '收款确认', {
+      confirmButtonText: '确认收款',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
   submitting.value = true
   try {
     if (paymentMethod.value === 'count_card') {
@@ -498,7 +703,7 @@ const handleSubmit = async () => {
       for (const service of selectedServices.value) {
         await fetch(`${API_BASE}/count-card/use`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
@@ -524,17 +729,14 @@ const handleSubmit = async () => {
           amount: s.price * s.quantity,
           employeeId: selectedEmployee.value || null
         })),
-        originalAmount: totalAmount.value,
-        discount: discount.value,
         actualAmount: finalAmount.value,
-        warehouseId: selectedWarehouse.value || null,
-        manualOrderNo: manualOrderNo.value || null,
+        employeeId: selectedEmployee.value || null,
         remark: customerType.value === 'walkin' ? `散客: ${walkinName.value || '匿名'}` : ''
       }
 
       const res = await fetch(`${API_BASE}/cashier/consume`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
@@ -548,7 +750,7 @@ const handleSubmit = async () => {
         ElMessage.error(err.message || '收款失败')
       }
     }
-    
+
     // 重置
     selectedServices.value = []
     selectedMember.value = null
@@ -557,6 +759,8 @@ const handleSubmit = async () => {
     selectedCountCard.value = ''
     availableCountCards.value = []
     discount.value = 100
+    memberDiscountRate.value = null
+    discountSource.value = 'manual'
     manualOrderNo.value = ''
     selectedWarehouse.value = ''
   } catch (e) {
@@ -568,23 +772,64 @@ const handleSubmit = async () => {
 
 // 开卡功能
 const showOpenCardDialog = () => {
-  if (!selectedMember.value) {
-    ElMessage.warning('请先选择会员')
-    return
+  // 如果收银台已选会员，默认用已有会员
+  if (selectedMember.value) {
+    openCardForm.value.mode = 'existing'
+    openCardForm.value.memberId = selectedMember.value.id
+    openCardForm.value.memberName = selectedMemberName.value
+  } else {
+    openCardForm.value.mode = 'new'
+    openCardForm.value.memberId = ''
+    openCardForm.value.memberName = ''
+    openCardForm.value.newName = ''
+    openCardForm.value.newPhone = ''
   }
-  openCardForm.value.memberId = selectedMember.value.id
-  openCardForm.value.memberName = selectedMemberName.value
   showOpenCard.value = true
 }
 
 const handleOpenCard = async () => {
-  if (!openCardForm.value.memberId) {
+  // 校验
+  if (openCardForm.value.mode === 'existing' && !openCardForm.value.memberId) {
     ElMessage.warning('请选择会员')
     return
   }
-  
+  if (openCardForm.value.mode === 'new' && !openCardForm.value.newName) {
+    ElMessage.warning('请输入客户姓名')
+    return
+  }
+  if (openCardForm.value.cardType === 'count' && !openCardForm.value.packageId) {
+    ElMessage.warning('请选择次卡套餐')
+    return
+  }
+  if (openCardForm.value.cardType === 'stored' && openCardForm.value.amount <= 0) {
+    ElMessage.warning('请输入充值金额')
+    return
+  }
+
   openCardSubmitting.value = true
   try {
+    if (openCardForm.value.mode === 'new') {
+      // 新客户开卡：先创建会员再开卡
+      const createRes = await fetch(`${API_BASE}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: openCardForm.value.newName,
+          phone: openCardForm.value.newPhone || undefined,
+        })
+      })
+      if (!createRes.ok) {
+        const err = await createRes.json()
+        ElMessage.error(err.message || '创建会员失败')
+        return
+      }
+      const newMember = await createRes.json()
+      openCardForm.value.memberId = newMember.id
+    }
+
     if (openCardForm.value.cardType === 'count') {
       // 开次卡
       const res = await fetch(`${API_BASE}/count-card/open`, {
@@ -636,6 +881,61 @@ const handleOpenCard = async () => {
   }
 }
 
+// 开卡专用会员搜索
+const searchOpenCardMember = () => {
+  if (openCardSearchTimer) clearTimeout(openCardSearchTimer)
+  openCardSearchTimer = setTimeout(async () => {
+    if (openCardMemberSearch.value.length < 1) {
+      openCardMemberList.value = []
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/members?keyword=${openCardMemberSearch.value}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      openCardMemberList.value = await res.json()
+    } catch (e) {
+      console.error(e)
+    }
+  }, 300)
+}
+
+const selectOpenCardMember = (row: any) => {
+  openCardForm.value.memberId = row.id
+  openCardForm.value.memberName = `${row.name} (${row.phone})`
+  showOpenCardMemberDialog.value = false
+}
+
+// 手动修改折扣时切换来源
+const onDiscountChange = (val: number) => {
+  if (memberDiscountRate.value && val !== memberDiscountRate.value) {
+    discountSource.value = 'manual'
+  } else if (memberDiscountRate.value && val === memberDiscountRate.value) {
+    discountSource.value = 'member'
+  }
+}
+
+// 会员价自动应用
+const applyMemberPrice = () => {
+  if (!selectedMember.value) return
+  selectedServices.value.forEach(item => {
+    if (item.memberPrice && item.memberPrice > 0 && item.memberPrice < item.price) {
+      item.originalPrice = item.price
+      item.price = item.memberPrice
+    }
+  })
+}
+
+// 恢复原价（取消会员选择时）
+const restoreOriginalPrice = () => {
+  selectedServices.value.forEach(item => {
+    if (item.originalPrice && item.originalPrice > 0) {
+      item.price = item.originalPrice
+      item.originalPrice = undefined
+    }
+  })
+}
+
 // 合单功能
 const showMergeOrderDialog = () => {
   showMergeOrder.value = true
@@ -646,18 +946,18 @@ const searchMergeOrders = async () => {
   try {
     const params = new URLSearchParams()
     if (mergeDateRange.value) {
-      params.append('startDate', mergeDateRange.value[0].toISOString())
-      params.append('endDate', mergeDateRange.value[1].toISOString())
+      params.append('startDate', new Date(mergeDateRange.value[0]).toISOString().split('T')[0])
+      params.append('endDate', new Date(mergeDateRange.value[1]).toISOString().split('T')[0])
     }
-    if (mergeMemberKeyword.value) {
-      params.append('memberKeyword', mergeMemberKeyword.value)
+    if (mergeKeyword.value) {
+      params.append('keyword', mergeKeyword.value)
     }
-    params.append('status', 'paid')
-    
-    const res = await fetch(`${API_BASE}/orders?${params.toString()}`, {
+
+    const res = await fetch(`${API_BASE}/documents?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    mergeOrderList.value = await res.json()
+    const data = await res.json()
+    mergeOrderList.value = data.data || data
   } catch (e) {
     ElMessage.error('加载订单失败')
   }
@@ -675,7 +975,7 @@ const handleMergeOrders = async () => {
   
   mergeSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/orders/merge`, {
+    const res = await fetch(`${API_BASE}/documents/merge`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -781,6 +1081,18 @@ onMounted(async () => {
 }
 
 .service-price {
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.original-price {
+  color: #909399;
+  font-size: 12px;
+  text-decoration: line-through;
+  margin-right: 5px;
+}
+
+.member-price {
   color: #f56c6c;
   font-weight: bold;
 }

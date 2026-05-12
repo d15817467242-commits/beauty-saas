@@ -127,7 +127,7 @@ onMounted(() => {
 async function loadEmployees() {
   try {
     const res = await request.get('/employees')
-    employees.value = res.data
+    employees.value = Array.isArray(res) ? res : (res.data || res.items || [])
   } catch (e) {
     console.error(e)
   }
@@ -136,7 +136,7 @@ async function loadEmployees() {
 async function loadServices() {
   try {
     const res = await request.get('/services')
-    services.value = res.data
+    services.value = Array.isArray(res) ? res : (res.data || res.items || [])
   } catch (e) {
     console.error(e)
   }

@@ -278,7 +278,8 @@ export class ConsumePointsDto {
 
 export class QueryPointsRecordsDto {
   @IsString()
-  memberId: string;
+  @IsOptional()
+  memberId?: string;
 
   @IsString()
   @IsOptional()

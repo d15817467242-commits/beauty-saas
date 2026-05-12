@@ -482,6 +482,10 @@ const handleDifference = (row: any) => {
   diffHandleDialogVisible.value = true
 }
 
+const viewDifferenceLog = (row: any) => {
+  ElMessage.info(`查看盘点差异日志: ${row.id}`)
+}
+
 const submitDifferenceHandle = async () => {
   try {
     const res = await fetch(`${API_BASE}/inventory/stock-takes/differences/${currentDifference.value.id}/handle`, {

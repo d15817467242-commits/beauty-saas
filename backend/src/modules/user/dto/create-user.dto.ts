@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsPhoneNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { UserRole } from '../user.entity';
 
 export class CreateUserDto {
@@ -23,6 +23,14 @@ export class CreateUserDto {
   avatar?: string;
 
   @IsOptional()
+  @IsString()
+  storeId?: string;
+
+  @IsOptional()
   @IsEnum(UserRole, { message: '角色类型不正确' })
   role?: UserRole;
+
+  @IsOptional()
+  @IsString()
+  isActive?: string;
 }

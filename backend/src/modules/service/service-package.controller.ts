@@ -14,6 +14,24 @@ import { CreateServicePackageDto, CreatePackageItemDto } from './dto/create-serv
 import { UpdateServicePackageDto } from './dto/update-service-package.dto';
 import { PackageStatus } from './service-package.entity';
 
+@Controller('packages')
+export class PackageAliasController {
+  constructor(private readonly packageService: ServicePackageService) {}
+
+  @Get()
+  findAll(
+    @Query('status') status?: PackageStatus,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.packageService.findAll(status, includeInactive === 'true');
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.packageService.findOne(id);
+  }
+}
+
 @Controller('service-packages')
 export class ServicePackageController {
   constructor(private readonly packageService: ServicePackageService) {}

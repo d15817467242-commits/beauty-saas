@@ -23,6 +23,8 @@
                 action="/api/upload"
                 :show-file-list="false"
                 :on-success="handleAvatarSuccess"
+                :headers="uploadHeaders"
+                accept="image/*"
               >
                 <img v-if="profile.avatar" :src="profile.avatar" class="avatar" />
                 <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
@@ -116,6 +118,11 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { useThemeStore } from '@/stores/theme'
+
+const themeStore = useThemeStore()
+
+const uploadHeaders = { Authorization: `Bearer ${localStorage.getItem('token')}` }
 
 const profile = ref<any>({
   username: '',
@@ -150,7 +157,7 @@ onMounted(() => {
 async function loadProfile() {
   try {
     const res = await request.get('/user/profile')
-    profile.value = res.data
+    profile.value = res
   } catch (e) {
     console.error(e)
   }
@@ -159,7 +166,7 @@ async function loadProfile() {
 async function loadSettings() {
   try {
     const res = await request.get('/user/settings')
-    settings.value = res.data
+    settings.value = res
   } catch (e) {
     console.error(e)
   }
@@ -175,7 +182,14 @@ async function saveProfile() {
 }
 
 function handleAvatarSuccess(res: any) {
-  profile.value.avatar = res.url
+  if (res.url) {
+    profile.value.avatar = res.url
+    // 同步更新到后端
+    request.put('/user/profile', { avatar: res.url })
+    ElMessage.success('头像上传成功')
+  } else {
+    ElMessage.error('头像上传失败')
+  }
 }
 
 async function changePassword() {
@@ -196,7 +210,14 @@ async function changePassword() {
 
 async function saveTheme() {
   try {
-    await request.put('/user/theme', settings.value)
+    const { theme, primaryColor, fontSize, layout } = settings.value
+    await request.put('/user/theme', { theme, primaryColor, fontSize, layout })
+    // 立即应用到页面
+    themeStore.theme = theme
+    themeStore.primaryColor = primaryColor
+    themeStore.fontSize = fontSize
+    themeStore.layout = layout
+    themeStore.applyTheme()
     ElMessage.success('主题设置已保存')
   } catch (e) {
     console.error(e)

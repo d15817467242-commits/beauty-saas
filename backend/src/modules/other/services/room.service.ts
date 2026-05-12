@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
-import { Room, RoomBed, RoomUsage, RoomStatus, RoomType } from '../entities/room.entity';
-import { CreateRoomDto, UpdateRoomDto, RoomQueryDto, UseRoomDto, ReleaseRoomDto } from '../dto/room.dto';
+import { Repository } from 'typeorm';
+import { Room } from '../../room/entities/room.entity';
+import { RoomBed, RoomUsage, RoomStatus } from '../entities/room.entity';
 
 @Injectable()
 export class RoomService {
@@ -10,200 +10,71 @@ export class RoomService {
     @InjectRepository(Room)
     private roomRepository: Repository<Room>,
     @InjectRepository(RoomBed)
-    private bedRepository: Repository<RoomBed>,
+    private roomBedRepository: Repository<RoomBed>,
     @InjectRepository(RoomUsage)
-    private usageRepository: Repository<RoomUsage>,
+    private roomUsageRepository: Repository<RoomUsage>,
   ) {}
 
   // ========== 房间管理 ==========
 
-  async findAll(query: RoomQueryDto): Promise<Room[]> {
-    const { keyword, type, status, floor } = query;
-
-    const where: any = {};
-    if (type) where.type = type;
-    if (status) where.status = status;
-    if (floor) where.floor = floor;
-    if (keyword) where.name = Like(`%${keyword}%`);
-
-    return this.roomRepository.find({
-      where,
-      order: { sort: 'ASC', createdAt: 'ASC' },
-    });
+  async createRoom(data: Partial<Room>): Promise<Room> {
+    const room = this.roomRepository.create(data);
+    return this.roomRepository.save(room);
   }
 
-  async findOne(id: string): Promise<Room> {
-    const room = await this.roomRepository.findOne({
-      where: { id },
-      relations: ['beds'],
-    });
-    if (!room) {
-      throw new NotFoundException('房间不存在');
-    }
+  async findAllRooms(storeId?: string): Promise<Room[]> {
+    const where: any = {};
+    if (storeId) where.storeId = storeId;
+    return this.roomRepository.find({ where, order: { createdAt: 'DESC' } });
+  }
+
+  async findOneRoom(id: string): Promise<Room> {
+    const room = await this.roomRepository.findOne({ where: { id } });
+    if (!room) throw new NotFoundException('房间不存在');
     return room;
   }
 
-  async create(dto: CreateRoomDto): Promise<Room> {
-    const room = this.roomRepository.create(dto);
-    const savedRoom = await this.roomRepository.save(room);
-
-    // 创建床位
-    if (dto.bedCount && dto.bedCount > 1) {
-      const beds: RoomBed[] = [];
-      for (let i = 1; i <= dto.bedCount; i++) {
-        beds.push(this.bedRepository.create({
-          roomId: savedRoom.id,
-          bedNumber: i,
-          name: `${savedRoom.name}-${i}号床`,
-          status: RoomStatus.AVAILABLE,
-        }));
-      }
-      await this.bedRepository.save(beds);
-    }
-
-    return savedRoom;
-  }
-
-  async update(id: string, dto: UpdateRoomDto): Promise<Room> {
-    const room = await this.findOne(id);
-    Object.assign(room, dto);
+  async updateRoom(id: string, data: Partial<Room>): Promise<Room> {
+    const room = await this.findOneRoom(id);
+    Object.assign(room, data);
     return this.roomRepository.save(room);
   }
 
-  async remove(id: string): Promise<void> {
-    const room = await this.findOne(id);
+  async deleteRoom(id: string): Promise<void> {
+    const room = await this.findOneRoom(id);
     await this.roomRepository.remove(room);
-  }
-
-  async updateStatus(id: string, status: RoomStatus): Promise<Room> {
-    const room = await this.findOne(id);
-    room.status = status;
-    return this.roomRepository.save(room);
   }
 
   // ========== 床位管理 ==========
 
-  async getBeds(roomId: string): Promise<RoomBed[]> {
-    return this.bedRepository.find({
-      where: { roomId },
-      order: { bedNumber: 'ASC' },
-    });
+  async createBed(data: Partial<RoomBed>): Promise<RoomBed> {
+    const bed = this.roomBedRepository.create(data);
+    return this.roomBedRepository.save(bed);
   }
 
-  async updateBedStatus(bedId: string, status: RoomStatus): Promise<RoomBed> {
-    const bed = await this.bedRepository.findOne({ where: { id: bedId } });
-    if (!bed) {
-      throw new NotFoundException('床位不存在');
-    }
-    bed.status = status;
-    return this.bedRepository.save(bed);
+  async findBedsByRoom(roomId: string): Promise<RoomBed[]> {
+    return this.roomBedRepository.find({ where: { roomId } });
   }
 
-  // ========== 房间使用 ==========
+  // ========== 使用记录 ==========
 
-  async useRoom(dto: UseRoomDto): Promise<RoomUsage> {
-    const room = await this.findOne(dto.roomId);
-
-    // 检查房间状态
-    if (room.status !== RoomStatus.AVAILABLE) {
-      throw new BadRequestException('房间不可用');
-    }
-
-    // 如果指定了床位
-    if (dto.bedId) {
-      const bed = await this.bedRepository.findOne({ where: { id: dto.bedId } });
-      if (!bed || bed.roomId !== dto.roomId) {
-        throw new NotFoundException('床位不存在');
-      }
-      if (bed.status !== RoomStatus.AVAILABLE) {
-        throw new BadRequestException('床位不可用');
-      }
-
-      // 更新床位状态
-      bed.status = RoomStatus.OCCUPIED;
-      bed.currentMemberId = dto.memberId;
-      bed.startTime = new Date();
-      await this.bedRepository.save(bed);
-    } else {
-      // 更新房间状态
-      room.status = RoomStatus.OCCUPIED;
-      await this.roomRepository.save(room);
-    }
-
-    // 创建使用记录
-    const usage = this.usageRepository.create({
-      roomId: dto.roomId,
-      bedId: dto.bedId,
-      memberId: dto.memberId,
-      orderId: dto.orderId,
-      serviceName: dto.serviceName,
-      employeeId: dto.employeeId,
-      startTime: new Date(),
-      remark: dto.remark,
-    });
-
-    return this.usageRepository.save(usage);
+  async useRoom(data: Partial<RoomUsage>): Promise<RoomUsage> {
+    const usage = this.roomUsageRepository.create(data);
+    usage.startTime = new Date();
+    return this.roomUsageRepository.save(usage);
   }
 
-  async releaseRoom(usageId: string, dto: ReleaseRoomDto): Promise<RoomUsage> {
-    const usage = await this.usageRepository.findOne({
-      where: { id: usageId },
-      relations: ['room', 'bed'],
-    });
-    if (!usage) {
-      throw new NotFoundException('使用记录不存在');
-    }
-
-    const now = new Date();
-    usage.endTime = now;
-    usage.duration = Math.floor((now.getTime() - usage.startTime.getTime()) / 60000);
-    if (dto.remark) usage.remark = dto.remark;
-
-    // 更新床位或房间状态
-    if (usage.bed) {
-      usage.bed.status = RoomStatus.AVAILABLE;
-      usage.bed.currentMemberId = undefined;
-      usage.bed.startTime = undefined;
-      await this.bedRepository.save(usage.bed);
-    } else {
-      usage.room.status = RoomStatus.AVAILABLE;
-      await this.roomRepository.save(usage.room);
-    }
-
-    return this.usageRepository.save(usage);
+  async releaseRoom(id: string): Promise<RoomUsage> {
+    const usage = await this.roomUsageRepository.findOne({ where: { id } });
+    if (!usage) throw new NotFoundException('使用记录不存在');
+    usage.endTime = new Date();
+    usage.status = 'completed';
+    return this.roomUsageRepository.save(usage);
   }
 
-  async getUsageHistory(query: {
-    roomId?: string;
-    memberId?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<RoomUsage[]> {
+  async getRoomUsages(roomId?: string): Promise<RoomUsage[]> {
     const where: any = {};
-    if (query.roomId) where.roomId = query.roomId;
-    if (query.memberId) where.memberId = query.memberId;
-
-    return this.usageRepository.find({
-      where,
-      relations: ['room', 'bed'],
-      order: { startTime: 'DESC' },
-    });
-  }
-
-  // ========== 统计 ==========
-
-  async getStatistics(): Promise<any> {
-    const total = await this.roomRepository.count();
-    const available = await this.roomRepository.count({ where: { status: RoomStatus.AVAILABLE } });
-    const occupied = await this.roomRepository.count({ where: { status: RoomStatus.OCCUPIED } });
-    const maintenance = await this.roomRepository.count({ where: { status: RoomStatus.MAINTENANCE } });
-
-    const totalBeds = await this.bedRepository.count();
-    const availableBeds = await this.bedRepository.count({ where: { status: RoomStatus.AVAILABLE } });
-
-    return {
-      rooms: { total, available, occupied, maintenance },
-      beds: { total: totalBeds, available: availableBeds },
-    };
+    if (roomId) where.roomId = roomId;
+    return this.roomUsageRepository.find({ where, order: { startTime: 'DESC' } });
   }
 }

@@ -1,8 +1,8 @@
 // 实体导出
-export * from './entities/service-category.entity';
+export * from '../service/service-category.entity';
 export * from './entities/product-category.entity';
 export * from './entities/discount.entity';
-export * from './entities/warehouse.entity';
+export * from '../data-settings/entities/warehouse.entity';
 export * from './entities/coupon-verification.entity';
 export * from './consumption.entity';
 export * from './credit.entity';

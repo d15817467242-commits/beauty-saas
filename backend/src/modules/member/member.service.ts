@@ -31,19 +31,23 @@ export class MemberService {
     return this.memberRepository.save(member);
   }
 
-  async findAll(query: { keyword?: string; level?: MemberLevel }): Promise<Member[]> {
+  async findAll(query: { keyword?: string; level?: MemberLevel; storeId?: string }): Promise<Member[]> {
     const qb = this.memberRepository.createQueryBuilder('member');
-    
+
+    if (query.storeId) {
+      qb.andWhere('member.store_id = :storeId', { storeId: query.storeId });
+    }
+
     if (query.keyword) {
       qb.andWhere('(member.name LIKE :keyword OR member.phone LIKE :keyword)', {
         keyword: `%${query.keyword}%`,
       });
     }
-    
+
     if (query.level) {
       qb.andWhere('member.level = :level', { level: query.level });
     }
-    
+
     return qb.orderBy('member.createdAt', 'DESC').getMany();
   }
 

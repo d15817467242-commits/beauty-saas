@@ -1,48 +1,44 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { Employee } from './employee.entity';
-import { ShiftTemplate } from './shift-template.entity';
 
-export enum ScheduleStatus {
-  SCHEDULED = 'scheduled',   // 已排班
-  COMPLETED = 'completed',   // 已完成
-  ABSENT = 'absent',         // 缺勤
-  LEAVE = 'leave',           // 请假
-}
+@Entity('schedules')
+export class WorkSchedule {
+  @PrimaryColumn()
+  id: string;
 
-@Entity('work_schedules')
-@Index(['employeeId', 'scheduleDate'], { unique: true })
-export class WorkSchedule extends BaseEntity {
-  @Column({ name: 'employee_id', comment: '员工ID' })
+  @Column({ name: 'employee_id' })
   employeeId: string;
 
-  @ManyToOne(() => Employee)
+  @ManyToOne(() => Employee, { eager: true })
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
 
-  @Column({ name: 'shift_id', nullable: true, comment: '班次模板ID' })
-  shiftId: string;
+  @Column({ name: 'date' })
+  scheduleDate: string;
 
-  @ManyToOne(() => ShiftTemplate, { nullable: true })
-  @JoinColumn({ name: 'shift_id' })
-  shift: ShiftTemplate;
+  @Column()
+  type: string;
 
-  @Column({ type: 'date', name: 'schedule_date', comment: '排班日期' })
-  scheduleDate: Date;
+  @Column({ name: 'start_time' })
+  startTime: string;
 
-  @Column({ type: 'time', name: 'actual_start', nullable: true, comment: '实际上班时间' })
-  actualStart: string;
+  @Column({ name: 'end_time' })
+  endTime: string;
 
-  @Column({ type: 'time', name: 'actual_end', nullable: true, comment: '实际下班时间' })
-  actualEnd: string;
+  @Column({ name: 'created_by', nullable: true })
+  createdBy: string;
 
-  @Column({ type: 'text',
-    
-    
-    default: ScheduleStatus.SCHEDULED,
-    comment: '状态'})
-  status: ScheduleStatus;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-  @Column({ nullable: true, type: 'text', comment: '备注' })
-  remark: string;
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

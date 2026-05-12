@@ -34,15 +34,20 @@ export class ServiceService {
   }
 
   async findAll(
-    category?: ServiceCategory, 
+    category?: ServiceCategory,
     isActive?: boolean,
     categoryId?: string,
     keyword?: string,
     page = 1,
     limit = 10,
+    storeId?: string,
   ): Promise<{ data: Service[]; total: number }> {
     const query = this.serviceRepository.createQueryBuilder('service');
-    
+
+    if (storeId) {
+      query.andWhere('service.store_id = :storeId', { storeId });
+    }
+
     if (category) {
       query.andWhere('service.category = :category', { category });
     }

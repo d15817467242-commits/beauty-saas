@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, LessThan } from 'typeorm';
-import { Product, ProductStock, StockMovement, StockWarning, StockMovementType } from './product.entity';
+import { Product, ProductStock, ProductStockMovement, StockWarning, StockMovementType } from './product.entity';
 import { CreateProductDto, UpdateProductDto, CreateStockMovementDto, UpdateStockWarningDto } from './dto/product.dto';
 
 @Injectable()
@@ -11,8 +11,8 @@ export class ProductService {
     private productRepository: Repository<Product>,
     @InjectRepository(ProductStock)
     private productStockRepository: Repository<ProductStock>,
-    @InjectRepository(StockMovement)
-    private stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(ProductStockMovement)
+    private stockMovementRepository: Repository<ProductStockMovement>,
     @InjectRepository(StockWarning)
     private stockWarningRepository: Repository<StockWarning>,
   ) {}
@@ -74,7 +74,7 @@ export class ProductService {
   }
 
   // 库存变动
-  async createStockMovement(dto: CreateStockMovementDto, userId: string): Promise<StockMovement> {
+  async createStockMovement(dto: CreateStockMovementDto, userId: string): Promise<ProductStockMovement> {
     const product = await this.findOne(dto.productId);
     const stock = await this.productStockRepository.findOne({
       where: { productId: dto.productId },
@@ -197,7 +197,7 @@ export class ProductService {
   }
 
   // 获取库存变动记录
-  async getStockMovements(productId?: string): Promise<StockMovement[]> {
+  async getProductStockMovements(productId?: string): Promise<ProductStockMovement[]> {
     const where: any = {};
     if (productId) {
       where.productId = productId;

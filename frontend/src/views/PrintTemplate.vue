@@ -264,8 +264,8 @@ const previewDialogVisible = ref(false)
 const editingTemplate = ref(null)
 const templateContent = ref('')
 
-const templates = ref([])
-const printers = ref([])
+const templates = ref<any[]>([])
+const printers = ref<any[]>([])
 
 const templateFormRef = ref()
 const printerFormRef = ref()

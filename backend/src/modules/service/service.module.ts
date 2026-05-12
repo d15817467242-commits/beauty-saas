@@ -10,9 +10,9 @@ import { ServiceReview } from './service-review.entity';
 import { ServiceCategoryService } from './service-category.service';
 import { ServiceCategoryController } from './service-category.controller';
 import { ServicePackageService } from './service-package.service';
-import { ServicePackageController } from './service-package.controller';
+import { ServicePackageController, PackageAliasController } from './service-package.controller';
 import { ServiceReviewService } from './service-review.service';
-import { ServiceReviewController } from './service-review.controller';
+import { ServiceReviewController, ReviewAliasController } from './service-review.controller';
 
 @Module({
   imports: [
@@ -28,7 +28,9 @@ import { ServiceReviewController } from './service-review.controller';
     ServiceController,
     ServiceCategoryController,
     ServicePackageController,
+    PackageAliasController,
     ServiceReviewController,
+    ReviewAliasController,
   ],
   providers: [
     ServiceService,

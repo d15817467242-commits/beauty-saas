@@ -64,25 +64,39 @@ async function insertDefaultData() {
     console.log('默认门店已插入');
   }
   
-  // 插入默认管理员用户
+  // 插入超级管理员用户
   const userRepo = dataSource.getRepository('User');
   const usersCount = await userRepo.count();
-  
+
   if (usersCount === 0) {
     const bcrypt = require('bcrypt');
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    
+    const hashedPassword = await bcrypt.hash('showba0714', 10);
+
     const adminRole = await roleRepo.findOne({ where: { code: 'admin' } });
-    
+
     await userRepo.save({
-      username: 'admin',
+      username: 'beyond0714',
       password: hashedPassword,
-      name: '系统管理员',
+      name: '超级管理员',
+      phone: '13397242689',
       role: 'admin',
       roleId: adminRole?.id,
       isActive: true,
     });
-    console.log('默认管理员已插入 (用户名: admin, 密码: admin123)');
+    console.log('超级管理员已插入 (用户名: beyond0714, 密码: showba0714)');
+  }
+
+  // 插入初始密钥
+  const licenseRepo = dataSource.getRepository('LicenseKey');
+  const licenseCount = await licenseRepo.count();
+
+  if (licenseCount === 0) {
+    await licenseRepo.save({
+      key: 'SHOWBA-TEST-KEY1',
+      status: 'unused',
+      remark: '初始测试密钥',
+    });
+    console.log('初始密钥已插入 (SHOWBA-TEST-KEY1)');
   }
   
   // 插入服务分类

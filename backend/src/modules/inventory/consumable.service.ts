@@ -147,6 +147,10 @@ export class ConsumableService {
   }
 
   // 设置服务耗材
+  async findAllServiceConsumables(): Promise<ServiceConsumable[]> {
+    return this.serviceConsumableRepository.find({ relations: ['consumable'] });
+  }
+
   async setServiceConsumable(dto: CreateServiceConsumableDto): Promise<ServiceConsumable> {
     // 检查是否已存在
     const existing = await this.serviceConsumableRepository.findOne({

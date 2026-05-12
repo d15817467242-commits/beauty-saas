@@ -121,8 +121,8 @@ export class MemberRanking extends BaseEntity {
   visitRank: number;
 }
 
-@Entity('stores')
-export class Store extends BaseEntity {
+@Entity('member_stores')
+export class MemberStore extends BaseEntity {
   @Column({ type: 'text', comment: '门店名称' })
   name: string;
 
