@@ -441,7 +441,9 @@ const loadServices = async () => {
     if (filterCategory.value) params.category = filterCategory.value
     if (filterStatus.value !== '') params.isActive = filterStatus.value.toString()
     const data = await request.get('/services', { params })
-    serviceList.value = data.data || data.items || data
+    const rawList = data.data || data.items || data
+    // SQLite isActive 是字符串 '0'/'1'，需要转换为布尔值
+    serviceList.value = rawList.map((s: any) => ({ ...s, isActive: s.isActive === '1' || s.isActive === 1 || s.isActive === true }))
     total.value = data.total || serviceList.value.length
   } catch (e) {
     ElMessage.error('加载失败')
@@ -475,7 +477,7 @@ const handleEdit = (row: any) => {
     notice: row.notice || '',
     image: row.image || '',
     sort: row.sort || 0,
-    isActive: row.isActive ?? true
+    isActive: row.isActive === '1' || row.isActive === 1 || row.isActive === true
   }
   dialogVisible.value = true
 }
@@ -507,7 +509,7 @@ const handleDelete = async (row: any) => {
 // 状态切换
 const handleStatusChange = async (row: any) => {
   try {
-    await request.patch(`/services/${row.id}`, { isActive: row.isActive })
+    await request.patch(`/services/${row.id}`, { isActive: row.isActive ? '1' : '0' })
     ElMessage.success(row.isActive ? '已上架' : '已下架')
   } catch (e) {
     row.isActive = !row.isActive
@@ -525,10 +527,11 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    const submitData = { ...form.value, isActive: form.value.isActive ? '1' : '0' }
     if (isEdit.value) {
-      await request.patch(`/services/${editId.value}`, form.value)
+      await request.patch(`/services/${editId.value}`, submitData)
     } else {
-      await request.post('/services', form.value)
+      await request.post('/services', submitData)
     }
     ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
     dialogVisible.value = false

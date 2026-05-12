@@ -12,7 +12,7 @@
               <el-option label="普通会员" value="normal" />
               <el-option label="银卡会员" value="silver" />
               <el-option label="金卡会员" value="gold" />
-              <el-option label="钻石会员" value="diamond" />
+              <el-option label="铂金会员" value="platinum" />
             </el-select>
             <el-button type="primary" @click="handleAdd" v-if="userStore.canCreate">新增会员</el-button>
           </div>
@@ -82,7 +82,7 @@
             <el-option label="普通会员" value="normal" />
             <el-option label="银卡会员" value="silver" />
             <el-option label="金卡会员" value="gold" />
-            <el-option label="钻石会员" value="diamond" />
+            <el-option label="铂金会员" value="platinum" />
           </el-select>
         </el-form-item>
         <el-form-item label="备注">
@@ -222,7 +222,7 @@ const levelMap: Record<string, { label: string; type: string }> = {
   normal: { label: '普通会员', type: 'info' },
   silver: { label: '银卡会员', type: '' },
   gold: { label: '金卡会员', type: 'warning' },
-  diamond: { label: '钻石会员', type: 'success' }
+  platinum: { label: '铂金会员', type: 'success' }
 }
 
 const consumptionTypeMap: Record<string, string> = {

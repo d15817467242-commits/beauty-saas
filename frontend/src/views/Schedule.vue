@@ -226,7 +226,7 @@ const loadSchedules = async () => {
       params.employeeId = filterEmployeeId.value
     }
 
-    const data = await request.get('/appointments/schedules', { params })
+    const data = await request.get('/schedules', { params })
     scheduleList.value = data.data || data.list || data.records || data.items || data
   } catch (e) {
     ElMessage.error('加载排班失败')
@@ -277,7 +277,7 @@ const handleEdit = (row: any) => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该排班记录吗？', '提示', { type: 'warning' })
-    await request.delete(`/appointments/schedules/${row.id}`)
+    await request.delete(`/schedules/${row.id}`)
     ElMessage.success('删除成功')
     loadSchedules()
   } catch (e) {}
@@ -291,12 +291,12 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await request.patch(`/appointments/schedules/${editId.value}`, {
+      await request.patch(`/schedules/${editId.value}`, {
         ...form.value,
         date: new Date(form.value.date).toISOString().split('T')[0],
       })
     } else {
-      await request.post('/appointments/schedules', {
+      await request.post('/schedules', {
         ...form.value,
         date: new Date(form.value.date).toISOString().split('T')[0],
       })
@@ -318,7 +318,7 @@ const handleBatchSubmit = async () => {
   }
   batchSubmitting.value = true
   try {
-    const result = await request.post('/appointments/schedules/batch', {
+    const result = await request.post('/schedules/batch', {
       employeeIds: batchForm.value.employeeIds,
       startDate: new Date(batchForm.value.dateRange[0]).toISOString().split('T')[0],
       endDate: new Date(batchForm.value.dateRange[1]).toISOString().split('T')[0],
