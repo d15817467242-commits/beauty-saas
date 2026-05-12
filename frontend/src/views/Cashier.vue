@@ -379,10 +379,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
+import request from '@/utils/request'
 
 const router = useRouter()
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
 
 // 数据
 const services = ref<any[]>([])
@@ -539,10 +538,7 @@ const handlePaymentMethodChange = async () => {
 const loadAvailableCountCards = async () => {
   if (!selectedMember.value) return
   try {
-    const res = await fetch(`${API_BASE}/count-card/available/${selectedMember.value.id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    availableCountCards.value = await res.json()
+    availableCountCards.value = await request.get(`/count-card/available/${selectedMember.value.id}`)
   } catch (e) {
     console.error(e)
   }
@@ -560,10 +556,7 @@ const searchMember = () => {
       return
     }
     try {
-      const res = await fetch(`${API_BASE}/members?keyword=${memberSearchKeyword.value}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      memberList.value = await res.json()
+      memberList.value = await request.get(`/members?keyword=${memberSearchKeyword.value}`)
     } catch (e) {
       console.error(e)
     }
@@ -577,30 +570,17 @@ const handleQuickAddMember = async () => {
   }
   quickAddLoading.value = true
   try {
-    const res = await fetch(`${API_BASE}/members`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        name: quickAddMember.value.name,
-        phone: quickAddMember.value.phone || undefined,
-      })
+    const newMember = await request.post('/members', {
+      name: quickAddMember.value.name,
+      phone: quickAddMember.value.phone || undefined,
     })
-    if (res.ok) {
-      const newMember = await res.json()
-      ElMessage.success('会员创建成功')
-      // 自动选中新会员
-      selectMember(newMember)
-      showQuickAddMember.value = false
-      quickAddMember.value = { name: '', phone: '' }
-    } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '创建失败')
-    }
+    ElMessage.success('会员创建成功')
+    // 自动选中新会员
+    selectMember(newMember)
+    showQuickAddMember.value = false
+    quickAddMember.value = { name: '', phone: '' }
   } catch (e) {
-    ElMessage.error('网络错误')
+    // 拦截器已处理错误提示
   } finally {
     quickAddLoading.value = false
   }
@@ -615,22 +595,17 @@ const selectMember = async (row: any) => {
 
   // 自动加载会员等级折扣
   try {
-    const levelRes = await fetch(`${API_BASE}/member-levels/member/${row.id}/level-info`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (levelRes.ok) {
-      const levelInfo = await levelRes.json()
-      if (levelInfo.currentLevel?.discountRate) {
-        // discountRate 如 0.95 表示95折，转换为百分比
-        memberDiscountRate.value = Math.round(levelInfo.currentLevel.discountRate * 100)
-        discount.value = memberDiscountRate.value
-        discountSource.value = 'member'
-      } else {
-        // 没有等级折扣率，保持100%
-        memberDiscountRate.value = null
-        discount.value = 100
-        discountSource.value = 'manual'
-      }
+    const levelInfo = await request.get(`/member-levels/member/${row.id}/level-info`)
+    if (levelInfo.currentLevel?.discountRate) {
+      // discountRate 如 0.95 表示95折，转换为百分比
+      memberDiscountRate.value = Math.round(levelInfo.currentLevel.discountRate * 100)
+      discount.value = memberDiscountRate.value
+      discountSource.value = 'member'
+    } else {
+      // 没有等级折扣率，保持100%
+      memberDiscountRate.value = null
+      discount.value = 100
+      discountSource.value = 'manual'
     }
   } catch (e) {
     console.error('加载会员等级失败', e)
@@ -649,10 +624,7 @@ const showMemberCountCards = async (row: any) => {
   showCountCardDialog.value = true
   countCardLoading.value = true
   try {
-    const res = await fetch(`${API_BASE}/count-card/member/${row.id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberCountCards.value = await res.json()
+    memberCountCards.value = await request.get(`/count-card/member/${row.id}`)
   } catch (e) {
     ElMessage.error('加载次卡失败')
   } finally {
@@ -701,18 +673,11 @@ const handleSubmit = async () => {
     if (paymentMethod.value === 'count_card') {
       // 次卡支付
       for (const service of selectedServices.value) {
-        await fetch(`${API_BASE}/count-card/use`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            memberCountCardId: selectedCountCard.value,
-            serviceId: service.id,
-            employeeId: selectedEmployee.value || undefined,
-            count: service.quantity
-          })
+        await request.post('/count-card/use', {
+          memberCountCardId: selectedCountCard.value,
+          serviceId: service.id,
+          employeeId: selectedEmployee.value || undefined,
+          count: service.quantity
         })
       }
       ElMessage.success('次卡消费成功！')
@@ -734,21 +699,8 @@ const handleSubmit = async () => {
         remark: customerType.value === 'walkin' ? `散客: ${walkinName.value || '匿名'}` : ''
       }
 
-      const res = await fetch(`${API_BASE}/cashier/consume`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(orderData)
-      })
-
-      if (res.ok) {
-        ElMessage.success('收款成功！')
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '收款失败')
-      }
+      await request.post('/cashier/consume', orderData)
+      ElMessage.success('收款成功！')
     }
 
     // 重置
@@ -810,72 +762,35 @@ const handleOpenCard = async () => {
   try {
     if (openCardForm.value.mode === 'new') {
       // 新客户开卡：先创建会员再开卡
-      const createRes = await fetch(`${API_BASE}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: openCardForm.value.newName,
-          phone: openCardForm.value.newPhone || undefined,
-        })
+      const newMember = await request.post('/members', {
+        name: openCardForm.value.newName,
+        phone: openCardForm.value.newPhone || undefined,
       })
-      if (!createRes.ok) {
-        const err = await createRes.json()
-        ElMessage.error(err.message || '创建会员失败')
-        return
-      }
-      const newMember = await createRes.json()
       openCardForm.value.memberId = newMember.id
     }
 
     if (openCardForm.value.cardType === 'count') {
       // 开次卡
-      const res = await fetch(`${API_BASE}/count-card/open`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          memberId: openCardForm.value.memberId,
-          packageId: openCardForm.value.packageId,
-          paymentMethod: openCardForm.value.paymentMethod
-        })
+      await request.post('/count-card/open', {
+        memberId: openCardForm.value.memberId,
+        packageId: openCardForm.value.packageId,
+        paymentMethod: openCardForm.value.paymentMethod
       })
-      if (res.ok) {
-        ElMessage.success('次卡开通成功！')
-        showOpenCard.value = false
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '开通失败')
-      }
+      ElMessage.success('次卡开通成功！')
+      showOpenCard.value = false
     } else {
       // 储值卡充值
-      const res = await fetch(`${API_BASE}/member/recharge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          memberId: openCardForm.value.memberId,
-          amount: openCardForm.value.amount,
-          bonus: openCardForm.value.bonus,
-          paymentMethod: openCardForm.value.paymentMethod
-        })
+      await request.post('/member/recharge', {
+        memberId: openCardForm.value.memberId,
+        amount: openCardForm.value.amount,
+        bonus: openCardForm.value.bonus,
+        paymentMethod: openCardForm.value.paymentMethod
       })
-      if (res.ok) {
-        ElMessage.success('充值成功！')
-        showOpenCard.value = false
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '充值失败')
-      }
+      ElMessage.success('充值成功！')
+      showOpenCard.value = false
     }
   } catch (e) {
-    ElMessage.error('网络错误')
+    // 拦截器已处理错误提示
   } finally {
     openCardSubmitting.value = false
   }
@@ -890,10 +805,7 @@ const searchOpenCardMember = () => {
       return
     }
     try {
-      const res = await fetch(`${API_BASE}/members?keyword=${openCardMemberSearch.value}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      openCardMemberList.value = await res.json()
+      openCardMemberList.value = await request.get(`/members?keyword=${openCardMemberSearch.value}`)
     } catch (e) {
       console.error(e)
     }
@@ -953,10 +865,7 @@ const searchMergeOrders = async () => {
       params.append('keyword', mergeKeyword.value)
     }
 
-    const res = await fetch(`${API_BASE}/documents?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    const data = await request.get(`/documents?${params.toString()}`)
     mergeOrderList.value = data.data || data
   } catch (e) {
     ElMessage.error('加载订单失败')
@@ -972,29 +881,17 @@ const handleMergeOrders = async () => {
     ElMessage.warning('请至少选择两个订单')
     return
   }
-  
+
   mergeSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/documents/merge`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        orderIds: selectedMergeOrders.value.map(o => o.id)
-      })
+    await request.post('/documents/merge', {
+      orderIds: selectedMergeOrders.value.map(o => o.id)
     })
-    if (res.ok) {
-      ElMessage.success('订单合并成功！')
-      showMergeOrder.value = false
-      selectedMergeOrders.value = []
-    } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '合并失败')
-    }
+    ElMessage.success('订单合并成功！')
+    showMergeOrder.value = false
+    selectedMergeOrders.value = []
   } catch (e) {
-    ElMessage.error('网络错误')
+    // 拦截器已处理错误提示
   } finally {
     mergeSubmitting.value = false
   }
@@ -1003,20 +900,20 @@ const handleMergeOrders = async () => {
 // 加载数据
 onMounted(async () => {
   try {
-    const [servicesRes, employeesRes, warehousesRes, serviceCatRes, productCatRes, packagesRes] = await Promise.all([
-      fetch(`${API_BASE}/products`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/employees`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/warehouse`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/service-category`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/product-category`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/count-card/packages`, { headers: { Authorization: `Bearer ${token}` } })
+    const [products, employeesData, warehousesData, serviceCatData, productCatData, packagesData] = await Promise.all([
+      request.get('/products'),
+      request.get('/employees'),
+      request.get('/warehouse'),
+      request.get('/service-category'),
+      request.get('/product-category'),
+      request.get('/count-card/packages')
     ])
-    services.value = await servicesRes.json()
-    employees.value = await employeesRes.json()
-    warehouses.value = await warehousesRes.json()
-    serviceCategories.value = await serviceCatRes.json()
-    productCategories.value = await productCatRes.json()
-    countPackages.value = await packagesRes.json()
+    services.value = products
+    employees.value = employeesData
+    warehouses.value = warehousesData
+    serviceCategories.value = serviceCatData
+    productCategories.value = productCatData
+    countPackages.value = packagesData
   } catch (e) {
     console.error(e)
   }

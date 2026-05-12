@@ -248,9 +248,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+import request from '@/utils/request'
 
 const paymentMethodMap: Record<string, string> = {
   cash: '现金',
@@ -293,10 +291,7 @@ const formatDate = (date: string) => {
 
 const loadOverview = async () => {
   try {
-    const res = await fetch(`${API_BASE}/report/overview`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    overview.value = await res.json()
+    overview.value = await request.get('/report/overview')
   } catch (e) {
     console.error(e)
   }
@@ -304,10 +299,7 @@ const loadOverview = async () => {
 
 const loadTrend = async () => {
   try {
-    const res = await fetch(`${API_BASE}/report/trend?days=7`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    trendData.value = await res.json()
+    trendData.value = await request.get('/report/trend', { params: { days: 7 } })
   } catch (e) {
     console.error(e)
   }
@@ -316,10 +308,7 @@ const loadTrend = async () => {
 const loadDailyReport = async () => {
   try {
     const today = new Date().toISOString().split('T')[0]
-    const res = await fetch(`${API_BASE}/report/daily?date=${today}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    dailyReport.value = await res.json()
+    dailyReport.value = await request.get('/report/daily', { params: { date: today } })
   } catch (e) {
     console.error(e)
   }
@@ -328,16 +317,12 @@ const loadDailyReport = async () => {
 const loadEmployeePerformance = async () => {
   employeeLoading.value = true
   try {
-    let start = ''
-    let end = ''
+    const params: Record<string, string> = {}
     if (employeeDateRange.value) {
-      start = new Date(employeeDateRange.value[0]).toISOString().split('T')[0]
-      end = new Date(employeeDateRange.value[1]).toISOString().split('T')[0]
+      params.startDate = new Date(employeeDateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(employeeDateRange.value[1]).toISOString().split('T')[0]
     }
-    const res = await fetch(`${API_BASE}/report/employee-performance?startDate=${start}&endDate=${end}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    employeePerformance.value = await res.json()
+    employeePerformance.value = await request.get('/report/employee-performance', { params })
   } catch (e) {
     ElMessage.error('加载员工业绩失败')
   } finally {
@@ -348,16 +333,12 @@ const loadEmployeePerformance = async () => {
 const loadServiceRanking = async () => {
   serviceLoading.value = true
   try {
-    let start = ''
-    let end = ''
+    const params: Record<string, string> = {}
     if (serviceDateRange.value) {
-      start = new Date(serviceDateRange.value[0]).toISOString().split('T')[0]
-      end = new Date(serviceDateRange.value[1]).toISOString().split('T')[0]
+      params.startDate = new Date(serviceDateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(serviceDateRange.value[1]).toISOString().split('T')[0]
     }
-    const res = await fetch(`${API_BASE}/report/service-ranking?startDate=${start}&endDate=${end}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    serviceRanking.value = await res.json()
+    serviceRanking.value = await request.get('/report/service-ranking', { params })
   } catch (e) {
     ElMessage.error('加载服务排行失败')
   } finally {
@@ -367,16 +348,12 @@ const loadServiceRanking = async () => {
 
 const loadPermDyeConversion = async () => {
   try {
-    let start = ''
-    let end = ''
+    const params: Record<string, string> = {}
     if (permDyeDateRange.value) {
-      start = new Date(permDyeDateRange.value[0]).toISOString().split('T')[0]
-      end = new Date(permDyeDateRange.value[1]).toISOString().split('T')[0]
+      params.startDate = new Date(permDyeDateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(permDyeDateRange.value[1]).toISOString().split('T')[0]
     }
-    const res = await fetch(`${API_BASE}/report/perm-dye-conversion?startDate=${start}&endDate=${end}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    permDyeData.value = await res.json()
+    permDyeData.value = await request.get('/report/perm-dye-conversion', { params })
   } catch (e) {
     console.error('加载烫染转化率失败', e)
   }
@@ -384,16 +361,12 @@ const loadPermDyeConversion = async () => {
 
 const loadCustomerFlow = async () => {
   try {
-    let start = ''
-    let end = ''
+    const params: Record<string, string> = {}
     if (customerFlowDateRange.value) {
-      start = new Date(customerFlowDateRange.value[0]).toISOString().split('T')[0]
-      end = new Date(customerFlowDateRange.value[1]).toISOString().split('T')[0]
+      params.startDate = new Date(customerFlowDateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(customerFlowDateRange.value[1]).toISOString().split('T')[0]
     }
-    const res = await fetch(`${API_BASE}/report/customer-flow?startDate=${start}&endDate=${end}&groupBy=${customerFlowGroupBy.value}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    customerFlowData.value = await res.json()
+    customerFlowData.value = await request.get('/report/customer-flow', { params: { ...params, groupBy: customerFlowGroupBy.value } })
   } catch (e) {
     console.error('加载客流趋势失败', e)
   }

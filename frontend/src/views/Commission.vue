@@ -311,9 +311,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Money, TrendCharts, User, DataAnalysis, Delete } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+import request from '@/utils/request'
 
 const ruleTypeMap: Record<string, { label: string; type: string }> = {
   global: { label: '全局规则', type: 'primary' },
@@ -380,17 +378,13 @@ const loadOverview = async () => {
     const now = new Date()
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    
-    const params = new URLSearchParams()
-    params.append('startDate', startDate.toISOString().split('T')[0])
-    params.append('endDate', endDate.toISOString().split('T')[0])
-    
-    const res = await fetch(`${API_BASE}/commission/overview?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      overview.value = await res.json()
+
+    const params = {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
     }
+
+    overview.value = await request.get('/commission/overview', { params })
   } catch (e) {
     console.error(e)
   }
@@ -399,10 +393,7 @@ const loadOverview = async () => {
 const loadRules = async () => {
   rulesLoading.value = true
   try {
-    const res = await fetch(`${API_BASE}/commission/rules`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    ruleList.value = await res.json()
+    ruleList.value = await request.get('/commission/rules')
   } catch (e) {
     ElMessage.error('加载规则失败')
   } finally {
@@ -413,23 +404,21 @@ const loadRules = async () => {
 const loadRecords = async () => {
   recordsLoading.value = true
   try {
-    const params = new URLSearchParams()
-    params.append('page', String(recordPage.value))
-    params.append('pageSize', String(recordPageSize.value))
-    
-    if (recordDateRange.value) {
-      params.append('startDate', new Date(recordDateRange.value[0]).toISOString().split('T')[0])
-      params.append('endDate', new Date(recordDateRange.value[1]).toISOString().split('T')[0])
-    }
-    
-    if (filterEmployeeId.value) {
-      params.append('employeeId', filterEmployeeId.value)
+    const params: Record<string, string> = {
+      page: String(recordPage.value),
+      pageSize: String(recordPageSize.value),
     }
 
-    const res = await fetch(`${API_BASE}/commission/records?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    if (recordDateRange.value) {
+      params.startDate = new Date(recordDateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(recordDateRange.value[1]).toISOString().split('T')[0]
+    }
+
+    if (filterEmployeeId.value) {
+      params.employeeId = filterEmployeeId.value
+    }
+
+    const data = await request.get('/commission/records', { params })
     recordList.value = data.records || data
     recordTotal.value = data.total || recordList.value.length
   } catch (e) {
@@ -442,18 +431,15 @@ const loadRecords = async () => {
 const loadStats = async () => {
   statsLoading.value = true
   try {
-    const params = new URLSearchParams()
+    const params: Record<string, string> = {}
     if (statsMonth.value) {
       const d = new Date(statsMonth.value)
-      params.append('year', String(d.getFullYear()))
-      params.append('month', String(d.getMonth() + 1))
+      params.year = String(d.getFullYear())
+      params.month = String(d.getMonth() + 1)
     }
-    
-    const res = await fetch(`${API_BASE}/commission/stats?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    employeeStats.value = await res.json()
-    
+
+    employeeStats.value = await request.get('/commission/stats', { params })
+
     await nextTick()
     renderCharts()
   } catch (e) {
@@ -465,19 +451,13 @@ const loadStats = async () => {
 
 const loadEmployees = async () => {
   try {
-    const res = await fetch(`${API_BASE}/employees`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    employeeList.value = await res.json()
+    employeeList.value = await request.get('/employees')
   } catch (e) {}
 }
 
 const loadServices = async () => {
   try {
-    const res = await fetch(`${API_BASE}/services`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    serviceList.value = await res.json()
+    serviceList.value = await request.get('/services')
   } catch (e) {}
 }
 
@@ -566,27 +546,15 @@ const handleEditRule = (row: any) => {
 const handleDeleteRule = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该规则吗？', '提示', { type: 'warning' })
-    const res = await fetch(`${API_BASE}/commission/rules/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('删除成功')
-      loadRules()
-    }
+    await request.delete(`/commission/rules/${row.id}`)
+    ElMessage.success('删除成功')
+    loadRules()
   } catch (e) {}
 }
 
 const handleRuleStatusChange = async (row: any) => {
   try {
-    await fetch(`${API_BASE}/commission/rules/${row.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ status: row.status })
-    })
+    await request.patch(`/commission/rules/${row.id}`, { status: row.status })
     ElMessage.success('状态更新成功')
   } catch (e) {
     ElMessage.error('更新失败')
@@ -600,28 +568,14 @@ const handleRuleSubmit = async () => {
   }
   ruleSubmitting.value = true
   try {
-    const url = isEditRule.value 
-      ? `${API_BASE}/commission/rules/${editRuleId.value}` 
-      : `${API_BASE}/commission/rules`
-    const method = isEditRule.value ? 'PATCH' : 'POST'
-    
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(ruleForm.value)
-    })
-    
-    if (res.ok) {
-      ElMessage.success(isEditRule.value ? '修改成功' : '添加成功')
-      ruleDialogVisible.value = false
-      loadRules()
+    if (isEditRule.value) {
+      await request.patch(`/commission/rules/${editRuleId.value}`, ruleForm.value)
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/commission/rules', ruleForm.value)
     }
+    ElMessage.success(isEditRule.value ? '修改成功' : '添加成功')
+    ruleDialogVisible.value = false
+    loadRules()
   } catch (e) {
     ElMessage.error('网络错误')
   } finally {

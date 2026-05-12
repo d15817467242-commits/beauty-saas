@@ -232,8 +232,8 @@
 
         <el-form-item label="服务图片">
           <el-upload
-            :action="`${API_BASE}/upload`"
-            :headers="{ Authorization: `Bearer ${token}` }"
+            :action="'/api/upload'"
+            :headers="{ Authorization: `Bearer ${userStore.token}` }"
             :show-file-list="false"
             :on-success="handleImageSuccess"
             :before-upload="beforeImageUpload"
@@ -290,8 +290,8 @@
         </el-alert>
         <el-button type="primary" link @click="downloadTemplate">下载导入模板</el-button>
         <el-upload
-          :action="`${API_BASE}/services/import`"
-          :headers="{ Authorization: `Bearer ${token}` }"
+          :action="'/api/services/import'"
+          :headers="{ Authorization: `Bearer ${userStore.token}` }"
           :show-file-list="true"
           :on-success="handleImportSuccess"
           :on-error="handleImportError"
@@ -312,6 +312,8 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, UploadFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
+const userStore = useUserStore()
 
 // 时长预设
 const durationPresets = [30, 45, 60, 90, 120]
@@ -523,24 +525,14 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const url = isEdit.value ? `${API_BASE}/services/${editId.value}` : `${API_BASE}/services`
-    const method = isEdit.value ? 'PATCH' : 'POST'
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(form.value)
-    })
-    if (res.ok) {
-      ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
-      dialogVisible.value = false
-      loadServices()
+    if (isEdit.value) {
+      await request.patch(`/services/${editId.value}`, form.value)
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/services', form.value)
     }
+    ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
+    dialogVisible.value = false
+    loadServices()
   } catch (e) {
     ElMessage.error('网络错误')
   } finally {
@@ -634,10 +626,8 @@ const handleImport = () => {
 
 const handleExport = async () => {
   try {
-    const res = await fetch(`${API_BASE}/services/export`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const blob = await res.blob()
+    const res = await request.get('/services/export', { responseType: 'blob' })
+    const blob = res
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

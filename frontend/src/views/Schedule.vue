@@ -145,9 +145,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+import request from '@/utils/request'
 
 const typeMap: Record<string, { label: string; type: string }> = {
   work: { label: '上班', type: 'success' },
@@ -208,11 +206,11 @@ const getWeekDay = (date: string | Date) => {
 const loadSchedules = async () => {
   loading.value = true
   try {
-    const params = new URLSearchParams()
-    
+    const params: Record<string, string> = {}
+
     if (dateRange.value) {
-      params.append('startDate', new Date(dateRange.value[0]).toISOString().split('T')[0])
-      params.append('endDate', new Date(dateRange.value[1]).toISOString().split('T')[0])
+      params.startDate = new Date(dateRange.value[0]).toISOString().split('T')[0]
+      params.endDate = new Date(dateRange.value[1]).toISOString().split('T')[0]
     } else {
       // 默认显示本周
       const today = new Date()
@@ -220,18 +218,15 @@ const loadSchedules = async () => {
       start.setDate(start.getDate() - start.getDay())
       const end = new Date(start)
       end.setDate(end.getDate() + 6)
-      params.append('startDate', start.toISOString().split('T')[0])
-      params.append('endDate', end.toISOString().split('T')[0])
-    }
-    
-    if (filterEmployeeId.value) {
-      params.append('employeeId', filterEmployeeId.value)
+      params.startDate = start.toISOString().split('T')[0]
+      params.endDate = end.toISOString().split('T')[0]
     }
 
-    const res = await fetch(`${API_BASE}/appointments/schedules?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    if (filterEmployeeId.value) {
+      params.employeeId = filterEmployeeId.value
+    }
+
+    const data = await request.get('/appointments/schedules', { params })
     scheduleList.value = data.data || data.list || data.records || data.items || data
   } catch (e) {
     ElMessage.error('加载排班失败')
@@ -242,10 +237,7 @@ const loadSchedules = async () => {
 
 const loadEmployees = async () => {
   try {
-    const res = await fetch(`${API_BASE}/employees`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    const data = await request.get('/employees')
     employeeList.value = data.data || data.list || data.records || data.items || data
   } catch (e) {}
 }
@@ -285,14 +277,9 @@ const handleEdit = (row: any) => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该排班记录吗？', '提示', { type: 'warning' })
-    const res = await fetch(`${API_BASE}/appointments/schedules/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('删除成功')
-      loadSchedules()
-    }
+    await request.delete(`/appointments/schedules/${row.id}`)
+    ElMessage.success('删除成功')
+    loadSchedules()
   } catch (e) {}
 }
 
@@ -303,33 +290,22 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    const url = isEdit.value 
-      ? `${API_BASE}/appointments/schedules/${editId.value}` 
-      : `${API_BASE}/appointments/schedules`
-    const method = isEdit.value ? 'PATCH' : 'POST'
-    
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
+    if (isEdit.value) {
+      await request.patch(`/appointments/schedules/${editId.value}`, {
         ...form.value,
         date: new Date(form.value.date).toISOString().split('T')[0],
       })
-    })
-    
-    if (res.ok) {
-      ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
-      dialogVisible.value = false
-      loadSchedules()
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/appointments/schedules', {
+        ...form.value,
+        date: new Date(form.value.date).toISOString().split('T')[0],
+      })
     }
+    ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
+    dialogVisible.value = false
+    loadSchedules()
   } catch (e) {
-    ElMessage.error('网络错误')
+    ElMessage.error('操作失败')
   } finally {
     submitting.value = false
   }
@@ -342,34 +318,20 @@ const handleBatchSubmit = async () => {
   }
   batchSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/appointments/schedules/batch`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        employeeIds: batchForm.value.employeeIds,
-        startDate: new Date(batchForm.value.dateRange[0]).toISOString().split('T')[0],
-        endDate: new Date(batchForm.value.dateRange[1]).toISOString().split('T')[0],
-        type: batchForm.value.type,
-        startTime: batchForm.value.startTime,
-        endTime: batchForm.value.endTime,
-        restDays: batchForm.value.restDays,
-      })
+    const result = await request.post('/appointments/schedules/batch', {
+      employeeIds: batchForm.value.employeeIds,
+      startDate: new Date(batchForm.value.dateRange[0]).toISOString().split('T')[0],
+      endDate: new Date(batchForm.value.dateRange[1]).toISOString().split('T')[0],
+      type: batchForm.value.type,
+      startTime: batchForm.value.startTime,
+      endTime: batchForm.value.endTime,
+      restDays: batchForm.value.restDays,
     })
-    
-    if (res.ok) {
-      const result = await res.json()
-      ElMessage.success(`成功创建 ${result.length} 条排班记录`)
-      batchDialogVisible.value = false
-      loadSchedules()
-    } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
-    }
+    ElMessage.success(`成功创建 ${result.length} 条排班记录`)
+    batchDialogVisible.value = false
+    loadSchedules()
   } catch (e) {
-    ElMessage.error('网络错误')
+    ElMessage.error('操作失败')
   } finally {
     batchSubmitting.value = false
   }
