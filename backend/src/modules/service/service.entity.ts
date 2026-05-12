@@ -10,6 +10,9 @@ export enum ServiceCategory {
 
 @Entity('services')
 export class Service extends BaseEntity {
+  @Column({ nullable: true, name: 'store_id', comment: '所属门店ID' })
+  storeId: string;
+
   @Column({ type: 'text', comment: '服务名称' })
   name: string;
 

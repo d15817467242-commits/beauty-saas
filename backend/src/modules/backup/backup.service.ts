@@ -342,13 +342,30 @@ export class BackupService {
 
   // 获取表列表
   private async getTableList(queryRunner: any): Promise<string[]> {
-    const tables = await queryRunner.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_type = 'BASE TABLE'
-    `);
-    return tables.map((t: any) => t.table_name);
+    try {
+      // SQLite语法
+      const tables = await queryRunner.query(`
+        SELECT name AS table_name
+        FROM sqlite_master
+        WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%'
+        AND name NOT LIKE '_litestream_%'
+      `);
+      return tables.map((t: any) => t.table_name);
+    } catch {
+      // PostgreSQL语法
+      try {
+        const tables = await queryRunner.query(`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+        `);
+        return tables.map((t: any) => t.table_name);
+      } catch {
+        return [];
+      }
+    }
   }
 
   // ========== 备份恢复 ==========
@@ -573,24 +590,38 @@ export class BackupService {
   async getDatabaseStats(): Promise<any> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     try {
       const tables = await this.getTableList(queryRunner);
       const stats: Record<string, { count: number }> = {};
-      
+
       for (const tableName of tables) {
-        const countResult = await queryRunner.query(`SELECT COUNT(*) as count FROM ${tableName}`);
-        stats[tableName] = { count: countResult[0].count };
+        try {
+          const countResult = await queryRunner.query(`SELECT COUNT(*) as count FROM "${tableName}"`);
+          stats[tableName] = { count: countResult[0].count };
+        } catch {
+          stats[tableName] = { count: 0 };
+        }
       }
-      
-      const dbSize = await queryRunner.query(`
-        SELECT pg_size_pretty(pg_database_size(current_database())) as size
-      `);
-      
+
+      // SQLite: 获取数据库文件大小
+      let databaseSize = 'Unknown';
+      try {
+        const dbPath = './data/meiye_saas.db';
+        if (fs.existsSync(dbPath)) {
+          const sizeInBytes = fs.statSync(dbPath).size;
+          if (sizeInBytes < 1024 * 1024) {
+            databaseSize = `${(sizeInBytes / 1024).toFixed(2)} KB`;
+          } else {
+            databaseSize = `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`;
+          }
+        }
+      } catch {}
+
       return {
         tables: stats,
         totalTables: tables.length,
-        databaseSize: dbSize[0]?.size || 'Unknown',
+        databaseSize,
       };
     } finally {
       await queryRunner.release();

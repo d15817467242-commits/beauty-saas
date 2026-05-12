@@ -42,6 +42,10 @@ import { SmsModule } from './modules/sms/sms.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { RoomModule } from './modules/room/room.module';
 import { OtherModule } from './modules/other/other.module';
+import { CommissionModule } from './modules/commission/commission.module';
+import { RouteAliasModule } from './modules/route-aliases/route-alias.module';
+import { RouteAliasNewModule } from './modules/route-aliases/route-alias-new.module';
+import { LicenseModule } from './modules/license/license.module';
 
 // 守卫
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -53,26 +57,25 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
-    
+
     // 数据库连接 (支持SQLite和PostgreSQL)
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const dbType = configService.get('DB_TYPE', 'postgres');
-        
+
         if (dbType === 'better-sqlite3') {
           return {
             type: 'better-sqlite3',
             database: configService.get('DB_DATABASE', './data/meiye_saas.db'),
-            entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
+            entities: [__dirname + '/modules/**/*.entity{.ts,.js}'],
+            synchronize: false,
             logging: false,
-            // 禁用类型验证，解决SQLite不支持某些数据类型的问题
             entitySkipConstructor: true,
             enableWAL: true,
           };
         }
-        
+
         return {
           type: 'postgres',
           host: configService.get('DB_HOST', 'localhost'),
@@ -80,14 +83,14 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
           username: configService.get('DB_USERNAME', 'postgres'),
           password: configService.get('DB_PASSWORD', 'postgres'),
           database: configService.get('DB_DATABASE', 'meiye_saas'),
-          entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,
-          logging: false,
+          entities: [__dirname + '/modules/**/*.entity{.ts,.js}'],
+          synchronize: false,
+            logging: false,
         };
       },
       inject: [ConfigService],
     }),
-    
+
     // JWT配置
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -98,7 +101,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       inject: [ConfigService],
       global: true,
     }),
-    
+
     // 业务模块
     AuthModule,
     UserModule,
@@ -113,30 +116,34 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     MarketingModule,
     InventoryModule,
     DashboardModule,
-    
+
     // 新增模块
     MiniappModule,
     OperationLogModule,
     SystemConfigModule,
     BackupModule,
-    
+
     // 系统配置增强模块
     StoreModule,
     PaymentConfigModule,
     PrintTemplateModule,
     MessageTemplateModule,
     DataSettingsModule,
-    
+
     // 库存和收支模块
     StockModule,
     ExpenseModule,
-    
+
     // 新增功能模块
     ParamSettingsModule,
     SmsModule,
     IntegrationModule,
     RoomModule,
     OtherModule,
+    CommissionModule,
+    RouteAliasModule,
+    RouteAliasNewModule,
+    LicenseModule,
   ],
   providers: [
     {

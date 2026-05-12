@@ -56,6 +56,14 @@ export class OperationLogController {
     return this.logService.getByUser(userId, limit);
   }
 
+  @Get('stats/user')
+  async getUserStatsAll(@Query('userId') userId?: string) {
+    if (userId) {
+      return this.logService.getUserStats(userId);
+    }
+    return this.logService.getStats();
+  }
+
   @Get('user/:userId/stats')
   async getUserStats(
     @Param('userId') userId: string,

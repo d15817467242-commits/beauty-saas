@@ -56,15 +56,11 @@ export class MarketingCampaignService {
   }
 
   async findAll(status?: CampaignStatus): Promise<MarketingCampaign[]> {
-    const where: any = {};
+    const qb = this.campaignRepository.createQueryBuilder('c');
     if (status) {
-      where.status = status;
+      qb.andWhere('c.status = :status', { status });
     }
-    return this.campaignRepository.find({
-      where,
-      relations: ['campaignRules'],
-      order: { createdAt: 'DESC' },
-    });
+    return qb.orderBy('c.createdAt', 'DESC').getMany();
   }
 
   async findActive(): Promise<MarketingCampaign[]> {

@@ -71,9 +71,9 @@ export class UpdateCommissionRecordDto {
 }
 
 export class CommissionQueryDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: '员工ID不能为空' })
-  employeeId: string;
+  employeeId?: string;
 
   @IsOptional()
   @IsDateString()

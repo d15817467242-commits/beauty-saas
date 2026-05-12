@@ -34,7 +34,7 @@ export class Consumable extends BaseEntity {
   @Column({ type: 'int', name: 'warning_stock', default: 10, comment: '库存预警' })
   warningStock: number;
 
-  @Column({ type: 'text', default: true, name: 'is_active', comment: '是否启用' })
+  @Column({ type: 'boolean', default: true, name: 'is_active', comment: '是否启用' })
   isActive: boolean;
 
   @Column({ nullable: true, comment: '备注' })

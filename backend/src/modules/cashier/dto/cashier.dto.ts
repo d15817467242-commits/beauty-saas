@@ -41,6 +41,22 @@ export class DocumentQueryDto {
   keyword?: string;
 
   @IsOptional()
+  @IsString()
+  orderNo?: string;
+
+  @IsOptional()
+  @IsString()
+  memberKeyword?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   page?: number;

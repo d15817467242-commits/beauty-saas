@@ -139,6 +139,16 @@ export class MarketingController {
 
   // ==================== 营销活动管理 ====================
 
+  @Get('activities')
+  async findActivities(@Query('status') status?: string) {
+    return this.campaignService.findAll(status as any);
+  }
+
+  @Get('campaigns')
+  async findCampaigns(@Query('status') status?: string) {
+    return this.campaignService.findAll(status as any);
+  }
+
   @Post('campaigns')
   async createCampaign(@Body() dto: CreateCampaignDto, @Request() req: any) {
     return this.campaignService.create(dto, req.user.userId);

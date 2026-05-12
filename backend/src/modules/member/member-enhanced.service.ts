@@ -7,7 +7,7 @@ import {
   PointExchangeRule, 
   PointExchangeRecord,
   MemberRanking,
-  Store,
+  MemberStore,
   CrossStoreConsumption,
   MemberLevelConfig,
   MemberLevelBenefit,
@@ -258,22 +258,22 @@ export class MemberRankingService {
 @Injectable()
 export class StoreService {
   constructor(
-    @InjectRepository(Store)
-    private storeRepository: Repository<Store>,
+    @InjectRepository(MemberStore)
+    private storeRepository: Repository<MemberStore>,
     @InjectRepository(CrossStoreConsumption)
     private crossStoreRepository: Repository<CrossStoreConsumption>,
   ) {}
 
-  async create(dto: CreateStoreDto): Promise<Store> {
+  async create(dto: CreateStoreDto): Promise<MemberStore> {
     const store = this.storeRepository.create(dto);
     return this.storeRepository.save(store);
   }
 
-  async findAll(): Promise<Store[]> {
+  async findAll(): Promise<MemberStore[]> {
     return this.storeRepository.find({ where: { isActive: true }, order: { name: 'ASC' } });
   }
 
-  async findOne(id: string): Promise<Store> {
+  async findOne(id: string): Promise<MemberStore> {
     const store = await this.storeRepository.findOne({ where: { id } });
     if (!store) throw new NotFoundException('门店不存在');
     return store;
@@ -326,7 +326,7 @@ export class MemberLevelService {
 
   async findAllLevels(): Promise<MemberLevelConfig[]> {
     return this.levelRepository.find({
-      where: { isActive: true },
+      where: { isActive: '1' as any },
       relations: ['benefits'],
       order: { levelOrder: 'ASC' },
     });

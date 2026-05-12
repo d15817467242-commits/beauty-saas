@@ -93,7 +93,7 @@ export class RoomService {
   async batchCreateBeds(roomId: string, count: number, prefix: string): Promise<Room[]> {
     const parent = await this.getRoom(roomId);
     
-    if (parent.type !== 'room') {
+    if (parent.type === 'bed' || parent.type === 'chair') {
       throw new BadRequestException('只能在房间下创建床位/座位');
     }
     
@@ -101,7 +101,7 @@ export class RoomService {
     for (let i = 1; i <= count; i++) {
       const bed = this.roomRepository.create({
         name: `${prefix}${i}`,
-        code: `${parent.code}-${i}`,
+        code: `${parent.code || parent.id.substring(0,8)}-${prefix}${i}-${Date.now()}`,
         type: 'bed',
         parentId: roomId,
         storeId: parent.storeId,

@@ -423,9 +423,9 @@ export class ReminderService {
       .leftJoinAndSelect('mcc.member', 'member')
       .leftJoinAndSelect('mcc.package', 'package')
       .where('mcc.remainingCount > 0')
-      .andWhere('mcc.expireTime IS NOT NULL')
-      .andWhere('mcc.expireTime <= :thresholdDate', { thresholdDate })
-      .andWhere('mcc.expireTime > :today', { today })
+      .andWhere('mcc.expireDate IS NOT NULL')
+      .andWhere('mcc.expireDate <= :thresholdDate', { thresholdDate })
+      .andWhere('mcc.expireDate > :today', { today })
       .getMany();
 
     const reminders: CountCardExpiryReminder[] = [];

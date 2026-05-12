@@ -285,7 +285,8 @@ const handleForm = ref({
   remark: ''
 })
 
-const ruleForm = ref({
+const ruleForm = ref<any>({
+  id: null,
   ruleName: '',
   ruleType: 'low_stock',
   threshold: 10,

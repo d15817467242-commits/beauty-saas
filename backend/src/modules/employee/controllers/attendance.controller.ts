@@ -16,6 +16,11 @@ export class AttendanceController {
     return this.service.checkOut(dto);
   }
 
+  @Get()
+  findAll(@Query() query: AttendanceQueryDto) {
+    return this.service.findByEmployee(query);
+  }
+
   @Get('records')
   findByEmployee(@Query() query: AttendanceQueryDto) {
     return this.service.findByEmployee(query);

@@ -37,8 +37,11 @@ export class CommissionRecordService {
 
   async findAll(dto: CommissionQueryDto): Promise<CommissionRecord[]> {
     const query = this.recordRepository.createQueryBuilder('record')
-      .leftJoinAndSelect('record.employee', 'employee')
-      .where('record.employeeId = :employeeId', { employeeId: dto.employeeId });
+      .leftJoinAndSelect('record.employee', 'employee');
+
+    if (dto.employeeId) {
+      query.where('record.employeeId = :employeeId', { employeeId: dto.employeeId });
+    }
 
     if (dto.startDate && dto.endDate) {
       query.andWhere('record.createdAt BETWEEN :startDate AND :endDate', {
@@ -185,6 +188,18 @@ export class CommissionRecordService {
     }
 
     return this.recordRepository.save(records);
+  }
+
+  // 提成概览
+  async getOverview(query?: any): Promise<any> {
+    const records = await this.recordRepository.find();
+    return {
+      totalAmount: records.reduce((sum, r) => sum + Number(r.amount), 0),
+      pendingCount: records.filter(r => r.status === CommissionStatus.PENDING).length,
+      approvedCount: records.filter(r => r.status === CommissionStatus.APPROVED).length,
+      paidCount: records.filter(r => r.status === CommissionStatus.PAID).length,
+      totalCount: records.length,
+    };
   }
 
   // 提成统计

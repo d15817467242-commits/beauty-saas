@@ -3,6 +3,7 @@ import { MemberService } from './member.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MemberLevel } from './member.entity';
+import { StoreId } from '../../common/decorators/store-id.decorator';
 
 @Controller('members')
 export class MemberController {
@@ -14,8 +15,8 @@ export class MemberController {
   }
 
   @Get()
-  findAll(@Query('keyword') keyword?: string, @Query('level') level?: MemberLevel) {
-    return this.memberService.findAll({ keyword, level });
+  findAll(@StoreId() storeId?: string, @Query('keyword') keyword?: string, @Query('level') level?: MemberLevel) {
+    return this.memberService.findAll({ keyword, level, storeId });
   }
 
   @Get(':id')

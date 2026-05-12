@@ -32,7 +32,9 @@ export class UserProfileService {
       throw new NotFoundException('用户不存在');
     }
     Object.assign(user, dto);
-    return this.userRepository.save(user);
+    const saved = await this.userRepository.save(user);
+    delete (saved as any).password;
+    return saved;
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
@@ -65,6 +67,14 @@ export class UserProfileService {
       });
       await this.settingRepository.save(settings);
     }
+    // SQLite存储JSON为字符串，前端需要对象
+    if (typeof settings.notifications === 'string') {
+      try {
+        (settings as any).notifications = JSON.parse(settings.notifications);
+      } catch {
+        (settings as any).notifications = { email: true, sms: true, push: true };
+      }
+    }
     return settings;
   }
 
@@ -74,7 +84,16 @@ export class UserProfileService {
       settings = this.settingRepository.create({ userId });
     }
     Object.assign(settings, dto);
-    return this.settingRepository.save(settings);
+    const saved = await this.settingRepository.save(settings);
+    // 返回时解析notifications为对象
+    if (typeof saved.notifications === 'string') {
+      try {
+        (saved as any).notifications = JSON.parse(saved.notifications);
+      } catch {
+        (saved as any).notifications = { email: true, sms: true, push: true };
+      }
+    }
+    return saved;
   }
 
   async updateNotifications(
@@ -94,7 +113,16 @@ export class UserProfileService {
       }
     }
     settings.notifications = JSON.stringify({ ...currentNotifications, ...notifications });
-    return this.settingRepository.save(settings);
+    const saved = await this.settingRepository.save(settings);
+    // 返回时解析为对象
+    if (typeof saved.notifications === 'string') {
+      try {
+        (saved as any).notifications = JSON.parse(saved.notifications);
+      } catch {
+        (saved as any).notifications = { email: true, sms: true, push: true };
+      }
+    }
+    return saved;
   }
 
   async updateLanguage(userId: string, language: string): Promise<UserSetting> {

@@ -339,9 +339,9 @@ const editingChannel = ref(null)
 const currentRecord = ref(null)
 const methodChartRef = ref()
 
-const paymentMethods = ref([])
-const paymentChannels = ref([])
-const paymentRecords = ref([])
+const paymentMethods = ref<any[]>([])
+const paymentChannels = ref<any[]>([])
+const paymentRecords = ref<any[]>([])
 
 const methodFormRef = ref()
 const channelFormRef = ref()

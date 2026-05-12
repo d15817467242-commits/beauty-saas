@@ -1,21 +1,24 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
 import { PassportModule } from '@nestjs/passport';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 import { User } from '../user/user.entity';
-import { UserService } from '../user/user.service';
-import { LocalStrategy } from './strategies/local.strategy';
+import { Store } from '../store/store.entity';
+import { UserStore } from '../user/entities/user-store.entity';
+import { UserModule } from '../user/user.module';
+import { LicenseModule } from '../license/license.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Store, UserStore]),
     PassportModule,
+    UserModule,
+    LicenseModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

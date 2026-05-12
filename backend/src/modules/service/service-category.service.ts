@@ -42,7 +42,7 @@ export class ServiceCategoryService {
       .leftJoinAndSelect('category.services', 'service');
 
     if (!includeInactive) {
-      query.where('category.isActive = :isActive', { isActive: true });
+      query.where('category.isActive IN (:...activeValues)', { activeValues: ['1', 1, 'true'] });
     }
 
     return query.orderBy('category.sort', 'ASC').addOrderBy('category.createdAt', 'DESC').getMany();

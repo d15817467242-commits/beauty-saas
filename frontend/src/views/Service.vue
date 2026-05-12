@@ -57,7 +57,7 @@
             <el-button @click="categoryDrawerVisible = true">分类管理</el-button>
             <el-button @click="handleImport">批量导入</el-button>
             <el-button @click="handleExport">导出数据</el-button>
-            <el-button type="primary" @click="handleAdd">新增服务</el-button>
+            <el-button type="primary" @click="handleAdd" v-if="userStore.canManageServices">新增服务</el-button>
           </div>
         </div>
       </template>
@@ -126,9 +126,9 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="info" @click="handleCopy(row)">复制</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" @click="handleEdit(row)" v-if="userStore.canEdit">编辑</el-button>
+            <el-button size="small" type="info" @click="handleCopy(row)" v-if="userStore.canCreate">复制</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row)" v-if="userStore.canDelete">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -311,9 +311,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, UploadFilled } from '@element-plus/icons-vue'
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+import request from '@/utils/request'
 
 // 时长预设
 const durationPresets = [30, 45, 60, 90, 120]
@@ -324,10 +322,7 @@ const categoryTree = ref<any[]>([])
 // 加载服务分类
 const loadCategories = async () => {
   try {
-    const res = await fetch(`${API_BASE}/service-categories`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    const data = await request.get('/service-categories')
     categoryTree.value = data.data || data.items || data
   } catch (e) {
     console.error('加载分类失败')
@@ -436,17 +431,14 @@ const resetForm = () => {
 const loadServices = async () => {
   loading.value = true
   try {
-    const params = new URLSearchParams({
+    const params: Record<string, string> = {
       page: currentPage.value.toString(),
       pageSize: pageSize.value.toString(),
-      ...(searchKeyword.value && { keyword: searchKeyword.value }),
-      ...(filterCategory.value && { category: filterCategory.value }),
-      ...(filterStatus.value !== '' && { isActive: filterStatus.value.toString() })
-    })
-    const res = await fetch(`${API_BASE}/services?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
+    }
+    if (searchKeyword.value) params.keyword = searchKeyword.value
+    if (filterCategory.value) params.category = filterCategory.value
+    if (filterStatus.value !== '') params.isActive = filterStatus.value.toString()
+    const data = await request.get('/services', { params })
     serviceList.value = data.data || data.items || data
     total.value = data.total || serviceList.value.length
   } catch (e) {
@@ -504,39 +496,20 @@ const handleCopy = (row: any) => {
 const handleDelete = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定要删除该服务吗？', '提示', { type: 'warning' })
-    const res = await fetch(`${API_BASE}/services/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('删除成功')
-      loadServices()
-    } else {
-      ElMessage.error('删除失败')
-    }
+    await request.delete(`/services/${row.id}`)
+    ElMessage.success('删除成功')
+    loadServices()
   } catch (e) {}
 }
 
 // 状态切换
 const handleStatusChange = async (row: any) => {
   try {
-    const res = await fetch(`${API_BASE}/services/${row.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ isActive: row.isActive })
-    })
-    if (res.ok) {
-      ElMessage.success(row.isActive ? '已上架' : '已下架')
-    } else {
-      row.isActive = !row.isActive
-      ElMessage.error('操作失败')
-    }
+    await request.patch(`/services/${row.id}`, { isActive: row.isActive })
+    ElMessage.success(row.isActive ? '已上架' : '已下架')
   } catch (e) {
     row.isActive = !row.isActive
-    ElMessage.error('网络错误')
+    ElMessage.error('操作失败')
   }
 }
 

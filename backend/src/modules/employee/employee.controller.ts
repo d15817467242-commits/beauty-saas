@@ -3,6 +3,8 @@ import { EmployeeService } from './employee.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeStatus } from './entities/employee.entity';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { StoreId } from '../../common/decorators/store-id.decorator';
 
 @Controller('employees')
 export class EmployeeController {
@@ -14,8 +16,8 @@ export class EmployeeController {
   }
 
   @Get()
-  findAll(@Query('status') status?: EmployeeStatus) {
-    return this.employeeService.findAll(status);
+  findAll(@StoreId() storeId?: string, @Query('status') status?: EmployeeStatus) {
+    return this.employeeService.findAll(storeId || undefined, status);
   }
 
   @Get('detail/:id')

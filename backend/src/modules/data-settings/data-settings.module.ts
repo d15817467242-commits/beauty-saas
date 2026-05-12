@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSettingsController } from './controllers/data-settings.controller';
+import { DataSettingsController, DataSettingsAliasController } from './controllers/data-settings.controller';
 import { DataSettingsService } from './services/data-settings.service';
-import { Store } from './entities/store.entity';
+import { Store } from '../store/store.entity';
 import { Department } from './entities/department.entity';
 import { Position } from './entities/position.entity';
 import { ProductUnit } from './entities/product-unit.entity';
@@ -22,7 +22,7 @@ import { Warehouse } from './entities/warehouse.entity';
       Warehouse,
     ]),
   ],
-  controllers: [DataSettingsController],
+  controllers: [DataSettingsController, DataSettingsAliasController],
   providers: [DataSettingsService],
   exports: [DataSettingsService],
 })

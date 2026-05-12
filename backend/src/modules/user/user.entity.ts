@@ -5,10 +5,11 @@ import { Exclude } from 'class-transformer';
 import { Role } from '../auth/role.entity';
 
 export enum UserRole {
-  ADMIN = 'admin',       // 管理员
-  MANAGER = 'manager',   // 店长
-  EMPLOYEE = 'employee', // 员工
-  CASHIER = 'cashier',   // 收银员
+  SUPERADMIN = 'superadmin', // 服务商（丁老大）
+  ADMIN = 'admin',           // 连锁管理员/单店管理员
+  MANAGER = 'manager',       // 店长
+  EMPLOYEE = 'employee',     // 员工
+  CASHIER = 'cashier',       // 收银员
 }
 
 @Entity('users')
@@ -40,6 +41,9 @@ export class User extends BaseEntity {
   @ManyToOne(() => Role, { nullable: true })
   @JoinColumn({ name: 'role_id' })
   roleDetail: Role;
+
+  @Column({ nullable: true, name: 'store_id', comment: '所属门店ID' })
+  storeId: string;
 
   // 修复：isActive 改成 text 类型，SQLite 兼容性更好
   @Column({ type: 'text', default: '1', comment: '是否启用' })

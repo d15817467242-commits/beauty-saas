@@ -13,6 +13,43 @@ import { ServiceReviewService } from './service-review.service';
 import { CreateServiceReviewDto } from './dto/create-service-review.dto';
 import { AdminReplyDto } from './dto/update-service-review.dto';
 
+@Controller('reviews')
+export class ReviewAliasController {
+  constructor(private readonly reviewService: ServiceReviewService) {}
+
+  @Get()
+  findAll(
+    @Query('serviceId') serviceId?: string,
+    @Query('userId') userId?: string,
+    @Query('orderId') orderId?: string,
+    @Query('isVisible') isVisible?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reviewService.findAll(
+      serviceId,
+      userId,
+      orderId,
+      isVisible === 'true' ? true : isVisible === 'false' ? false : undefined,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
+    );
+  }
+
+  @Get('stats')
+  getStats(@Query('serviceId') serviceId?: string) {
+    if (!serviceId) {
+      return { totalReviews: 0, averageRating: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, tagStatistics: [] };
+    }
+    return this.reviewService.getStatistics(serviceId);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.reviewService.findOne(id);
+  }
+}
+
 @Controller('service-reviews')
 export class ServiceReviewController {
   constructor(private readonly reviewService: ServiceReviewService) {}
@@ -28,17 +65,25 @@ export class ServiceReviewController {
     @Query('userId') userId?: string,
     @Query('orderId') orderId?: string,
     @Query('isVisible') isVisible?: string,
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     return this.reviewService.findAll(
       serviceId,
       userId,
       orderId,
       isVisible === 'true' ? true : isVisible === 'false' ? false : undefined,
-      page || 1,
-      limit || 10,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 10,
     );
+  }
+
+  @Get('stats')
+  getStats(@Query('serviceId') serviceId?: string) {
+    if (!serviceId) {
+      return { totalReviews: 0, averageRating: 0, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, tagStatistics: [] };
+    }
+    return this.reviewService.getStatistics(serviceId);
   }
 
   @Get('user/:userId')

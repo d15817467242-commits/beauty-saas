@@ -8,7 +8,7 @@ export class Room {
   @Column({ length: 50, comment: '房间名称' })
   name: string;
 
-  @Column({ length: 50, unique: true, comment: '房间编码' })
+  @Column({ length: 50, unique: true, nullable: true, comment: '房间编码' })
   code: string;
 
   @Column({ type: 'text', default: 'room', comment: '类型: room=房间, bed=床位, chair=座位' })
@@ -35,7 +35,7 @@ export class Room {
   @Column({ type: 'text', default: 0, comment: '排序' })
   sort: number;
 
-  @Column({ type: 'text', default: true, comment: '是否启用' })
+  @Column({ type: 'boolean', default: true, comment: '是否启用' })
   isActive: boolean;
 
   @CreateDateColumn()

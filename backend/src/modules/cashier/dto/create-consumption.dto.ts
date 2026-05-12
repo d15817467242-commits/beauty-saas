@@ -13,7 +13,6 @@ export class ConsumptionItemDto {
   @IsOptional()
   employeeId?: string;
 
-  // 动态填充字段
   @IsOptional()
   employeeName?: string;
 

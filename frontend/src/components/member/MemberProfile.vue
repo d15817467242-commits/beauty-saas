@@ -147,17 +147,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import request from '@/utils/request'
 
 const props = defineProps<{
   memberId: string
 }>()
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
 
 const chartMonth = ref(new Date())
 const profile = ref<any>({
@@ -189,142 +187,72 @@ const availableTags = computed(() => {
   return allTags.value.filter(t => t.name.includes(tagSearchKeyword.value))
 })
 
-import { computed } from 'vue'
-
 const loadProfile = async () => {
   if (!props.memberId) return
-  
   try {
     const yearMonth = chartMonth.value.getFullYear() * 100 + (chartMonth.value.getMonth() + 1)
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/profile?yearMonth=${yearMonth}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    profile.value = await res.json()
-    
+    profile.value = await request.get(`/members/${props.memberId}/profile`, { params: { yearMonth } })
     await nextTick()
     renderCharts()
   } catch (e) {
-    console.error('加载画像失败')
+    console.error('加载画像失败', e)
   }
 }
 
 const loadMemberTags = async () => {
   if (!props.memberId) return
-  
   try {
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/tags`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberTags.value = await res.json()
+    const data = await request.get(`/members/${props.memberId}/tags`)
+    memberTags.value = Array.isArray(data) ? data : []
     selectedTagIds.value = memberTags.value.map(t => t.id)
   } catch (e) {
-    console.error('加载标签失败')
+    console.error('加载标签失败', e)
   }
 }
 
 const loadAllTags = async () => {
   try {
-    const res = await fetch(`${API_BASE}/member-tags`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    allTags.value = await res.json()
+    const data = await request.get('/member-tags')
+    allTags.value = Array.isArray(data) ? data : []
   } catch (e) {
-    console.error('加载所有标签失败')
+    console.error('加载所有标签失败', e)
   }
 }
 
 const renderCharts = () => {
-  // 消费趋势图
   if (trendChartRef.value) {
-    if (!trendChart) {
-      trendChart = echarts.init(trendChartRef.value)
-    }
+    if (!trendChart) trendChart = echarts.init(trendChartRef.value)
     trendChart.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: profile.value.trendDates || ['1', '2', '3', '4', '5', '6', '7']
-      },
+      xAxis: { type: 'category', data: profile.value.trendDates || ['1','2','3','4','5','6','7'] },
       yAxis: { type: 'value' },
-      series: [{
-        name: '消费金额',
-        type: 'line',
-        smooth: true,
-        data: profile.value.trendData || [120, 200, 150, 80, 70, 110, 130],
-        areaStyle: { opacity: 0.3 },
-        itemStyle: { color: '#409EFF' }
-      }]
+      series: [{ name: '消费金额', type: 'line', smooth: true, data: profile.value.trendData || [120,200,150,80,70,110,130], areaStyle: { opacity: 0.3 }, itemStyle: { color: '#409EFF' } }]
     })
   }
-
-  // 偏好服务图
   if (serviceChartRef.value) {
-    if (!serviceChart) {
-      serviceChart = echarts.init(serviceChartRef.value)
-    }
-    const serviceData = (profile.value.topServices || []).map((s: any) => ({
-      name: s.serviceName,
-      value: s.count
-    }))
+    if (!serviceChart) serviceChart = echarts.init(serviceChartRef.value)
+    const serviceData = (profile.value.topServices || []).map((s: any) => ({ name: s.serviceName, value: s.count }))
     serviceChart.setOption({
       tooltip: { trigger: 'item' },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-        label: { show: false },
-        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
-        data: serviceData.length ? serviceData : [{ name: '暂无数据', value: 1 }]
-      }]
+      series: [{ type: 'pie', radius: ['40%','70%'], avoidLabelOverlap: false, itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, label: { show: false }, emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } }, data: serviceData.length ? serviceData : [{ name: '暂无数据', value: 1 }] }]
     })
   }
-
-  // 消费时段分布
   if (timeChartRef.value) {
-    if (!timeChart) {
-      timeChart = echarts.init(timeChartRef.value)
-    }
+    if (!timeChart) timeChart = echarts.init(timeChartRef.value)
     timeChart.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-      xAxis: {
-        type: 'category',
-        data: ['上午', '中午', '下午', '傍晚', '晚上']
-      },
+      xAxis: { type: 'category', data: ['上午','中午','下午','傍晚','晚上'] },
       yAxis: { type: 'value' },
-      series: [{
-        type: 'bar',
-        data: profile.value.timeDistribution || [30, 50, 80, 60, 40],
-        itemStyle: { color: '#67C23A' }
-      }]
+      series: [{ type: 'bar', data: profile.value.timeDistribution || [30,50,80,60,40], itemStyle: { color: '#67C23A' } }]
     })
   }
-
-  // 消费类型分布
   if (typeChartRef.value) {
-    if (!typeChart) {
-      typeChart = echarts.init(typeChartRef.value)
-    }
+    if (!typeChart) typeChart = echarts.init(typeChartRef.value)
     typeChart.setOption({
       tooltip: { trigger: 'item' },
-      series: [{
-        type: 'pie',
-        radius: '60%',
-        data: profile.value.typeDistribution || [
-          { name: '服务', value: 60 },
-          { name: '产品', value: 30 },
-          { name: '充值', value: 10 }
-        ],
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
-          }
-        }
-      }]
+      series: [{ type: 'pie', radius: '60%', data: profile.value.typeDistribution || [{ name: '服务', value: 60 },{ name: '产品', value: 30 },{ name: '充值', value: 10 }], emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.5)' } } }]
     })
   }
 }
@@ -337,33 +265,19 @@ const showTagSelect = () => {
 
 const toggleTag = (tag: any) => {
   const idx = selectedTagIds.value.indexOf(tag.id)
-  if (idx > -1) {
-    selectedTagIds.value.splice(idx, 1)
-  } else {
-    selectedTagIds.value.push(tag.id)
-  }
+  if (idx > -1) selectedTagIds.value.splice(idx, 1)
+  else selectedTagIds.value.push(tag.id)
 }
 
 const saveTags = async () => {
   tagSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/tags`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ tagIds: selectedTagIds.value })
-    })
-    if (res.ok) {
-      ElMessage.success('保存成功')
-      tagSelectVisible.value = false
-      loadMemberTags()
-    } else {
-      ElMessage.error('保存失败')
-    }
+    await request.put(`/members/${props.memberId}/tags`, { tagIds: selectedTagIds.value })
+    ElMessage.success('保存成功')
+    tagSelectVisible.value = false
+    loadMemberTags()
   } catch (e) {
-    ElMessage.error('网络错误')
+    console.error(e)
   } finally {
     tagSubmitting.value = false
   }
@@ -371,15 +285,10 @@ const saveTags = async () => {
 
 const removeTag = async (tag: any) => {
   try {
-    const res = await fetch(`${API_BASE}/members/${props.memberId}/tags/${tag.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      loadMemberTags()
-    }
+    await request.delete(`/members/${props.memberId}/tags/${tag.id}`)
+    loadMemberTags()
   } catch (e) {
-    ElMessage.error('移除失败')
+    console.error(e)
   }
 }
 

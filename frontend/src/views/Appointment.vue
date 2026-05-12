@@ -17,7 +17,7 @@
           <template #header>
             <div class="card-header">
               <span>{{ selectedDateStr }} 的预约</span>
-              <el-button type="primary" @click="handleAdd">新增预约</el-button>
+              <el-button type="primary" @click="handleAdd" v-if="userStore.canCreate">新增预约</el-button>
             </div>
           </template>
 
@@ -47,7 +47,7 @@
             <el-table-column prop="remark" label="备注" show-overflow-tooltip />
             <el-table-column label="操作" width="200">
               <template #default="{ row }">
-                <el-button size="small" @click="handleEdit(row)" :disabled="row.status === 'completed' || row.status === 'cancelled'">编辑</el-button>
+                <el-button size="small" @click="handleEdit(row)" :disabled="row.status === 'completed' || row.status === 'cancelled'" v-if="userStore.canEdit">编辑</el-button>
                 <el-button size="small" type="success" @click="handleConfirm(row)" v-if="row.status === 'pending'">确认</el-button>
                 <el-button size="small" type="primary" @click="handleComplete(row)" v-if="row.status === 'confirmed'">完成</el-button>
                 <el-button size="small" type="danger" @click="handleCancel(row)" v-if="row.status !== 'completed' && row.status !== 'cancelled'">取消</el-button>
@@ -152,9 +152,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+const userStore = useUserStore()
 
 const statusMap: Record<string, { label: string; type: string }> = {
   pending: { label: '待确认', type: 'warning' },
@@ -218,10 +219,7 @@ const loadAppointments = async () => {
   loading.value = true
   try {
     const date = new Date(selectedDate.value).toISOString().split('T')[0]
-    const res = await fetch(`${API_BASE}/appointments?date=${date}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    appointmentList.value = await res.json()
+    appointmentList.value = await request.get('/appointments', { params: { date } })
   } catch (e) {
     ElMessage.error('加载预约失败')
   } finally {
@@ -231,28 +229,19 @@ const loadAppointments = async () => {
 
 const loadMembers = async () => {
   try {
-    const res = await fetch(`${API_BASE}/members`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberList.value = await res.json()
+    memberList.value = await request.get('/members')
   } catch (e) {}
 }
 
 const loadEmployees = async () => {
   try {
-    const res = await fetch(`${API_BASE}/employees`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    employeeList.value = await res.json()
+    employeeList.value = await request.get('/employees')
   } catch (e) {}
 }
 
 const loadServices = async () => {
   try {
-    const res = await fetch(`${API_BASE}/services`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    serviceList.value = await res.json()
+    serviceList.value = await request.get('/services')
   } catch (e) {}
 }
 
@@ -301,14 +290,9 @@ const handleEdit = (row: any) => {
 
 const handleConfirm = async (row: any) => {
   try {
-    const res = await fetch(`${API_BASE}/appointments/${row.id}/confirm`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('已确认')
-      loadAppointments()
-    }
+    await request.post(`/appointments/${row.id}/confirm`)
+    ElMessage.success('已确认')
+    loadAppointments()
   } catch (e) {
     ElMessage.error('操作失败')
   }
@@ -316,14 +300,9 @@ const handleConfirm = async (row: any) => {
 
 const handleComplete = async (row: any) => {
   try {
-    const res = await fetch(`${API_BASE}/appointments/${row.id}/complete`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (res.ok) {
-      ElMessage.success('已完成')
-      loadAppointments()
-    }
+    await request.post(`/appointments/${row.id}/complete`)
+    ElMessage.success('已完成')
+    loadAppointments()
   } catch (e) {
     ElMessage.error('操作失败')
   }
@@ -342,19 +321,10 @@ const handleCancelSubmit = async () => {
   }
   cancelSubmitting.value = true
   try {
-    const res = await fetch(`${API_BASE}/appointments/${currentCancelId.value}/cancel`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(cancelForm.value)
-    })
-    if (res.ok) {
-      ElMessage.success('已取消')
-      cancelDialogVisible.value = false
-      loadAppointments()
-    }
+    await request.post(`/appointments/${currentCancelId.value}/cancel`, cancelForm.value)
+    ElMessage.success('已取消')
+    cancelDialogVisible.value = false
+    loadAppointments()
   } catch (e) {
     ElMessage.error('操作失败')
   } finally {
@@ -377,7 +347,7 @@ const handleSubmit = async () => {
       endTime: form.value.endTime,
       remark: form.value.remark,
     }
-    
+
     if (form.value.customerType === 'member') {
       data.memberId = form.value.memberId
     } else {
@@ -385,26 +355,15 @@ const handleSubmit = async () => {
       data.guestPhone = form.value.guestPhone
     }
 
-    const url = isEdit.value ? `${API_BASE}/appointments/${editId.value}` : `${API_BASE}/appointments`
-    const method = isEdit.value ? 'PATCH' : 'POST'
-    
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(data)
-    })
-    
-    if (res.ok) {
-      ElMessage.success(isEdit.value ? '修改成功' : '预约成功')
-      dialogVisible.value = false
-      loadAppointments()
+    if (isEdit.value) {
+      await request.patch(`/appointments/${editId.value}`, data)
+      ElMessage.success('修改成功')
     } else {
-      const err = await res.json()
-      ElMessage.error(err.message || '操作失败')
+      await request.post('/appointments', data)
+      ElMessage.success('预约成功')
     }
+    dialogVisible.value = false
+    loadAppointments()
   } catch (e) {
     ElMessage.error('网络错误')
   } finally {

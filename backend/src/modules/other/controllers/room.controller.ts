@@ -1,94 +1,65 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { RoomService } from '../services/room.service';
-import { Room, RoomBed, RoomUsage } from '../entities/room.entity';
-import { CreateRoomDto, UpdateRoomDto, RoomQueryDto, UseRoomDto, ReleaseRoomDto } from '../dto/room.dto';
-import { RoomStatus } from '../entities/room.entity';
+import { Room } from '../../room/entities/room.entity';
+import { RoomBed, RoomUsage } from '../entities/room.entity';
 
 @Controller('room')
 export class RoomController {
-  constructor(private readonly service: RoomService) {}
+  constructor(private readonly roomService: RoomService) {}
 
   // ========== 房间管理 ==========
 
-  @Get()
-  findAll(@Query() query: RoomQueryDto): Promise<Room[]> {
-    return this.service.findAll(query);
+  @Post()
+  async createRoom(@Body() body: Partial<Room>) {
+    return this.roomService.createRoom(body);
   }
 
-  @Get('statistics')
-  getStatistics(): Promise<any> {
-    return this.service.getStatistics();
+  @Get()
+  async findAllRooms(@Query('storeId') storeId?: string) {
+    return this.roomService.findAllRooms(storeId);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Room> {
-    return this.service.findOne(id);
-  }
-
-  @Get(':id/beds')
-  getBeds(@Param('id', ParseUUIDPipe) id: string): Promise<RoomBed[]> {
-    return this.service.getBeds(id);
-  }
-
-  @Post()
-  create(@Body() dto: CreateRoomDto): Promise<Room> {
-    return this.service.create(dto);
+  async findOneRoom(@Param('id') id: string) {
+    return this.roomService.findOneRoom(id);
   }
 
   @Put(':id')
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateRoomDto
-  ): Promise<Room> {
-    return this.service.update(id, dto);
+  async updateRoom(@Param('id') id: string, @Body() body: Partial<Room>) {
+    return this.roomService.updateRoom(id, body);
   }
 
   @Delete(':id')
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<{ success: boolean }> {
-    await this.service.remove(id);
-    return { success: true };
-  }
-
-  @Put(':id/status')
-  updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('status') status: RoomStatus
-  ): Promise<Room> {
-    return this.service.updateStatus(id, status);
+  async deleteRoom(@Param('id') id: string) {
+    return this.roomService.deleteRoom(id);
   }
 
   // ========== 床位管理 ==========
 
-  @Put('bed/:bedId/status')
-  updateBedStatus(
-    @Param('bedId', ParseUUIDPipe) bedId: string,
-    @Body('status') status: RoomStatus
-  ): Promise<RoomBed> {
-    return this.service.updateBedStatus(bedId, status);
+  @Post(':roomId/beds')
+  async createBed(@Param('roomId') roomId: string, @Body() body: Partial<RoomBed>) {
+    return this.roomService.createBed({ ...body, roomId });
   }
 
-  // ========== 房间使用 ==========
-
-  @Post('use')
-  useRoom(@Body() dto: UseRoomDto): Promise<RoomUsage> {
-    return this.service.useRoom(dto);
+  @Get(':roomId/beds')
+  async findBedsByRoom(@Param('roomId') roomId: string) {
+    return this.roomService.findBedsByRoom(roomId);
   }
 
-  @Post('release/:usageId')
-  releaseRoom(
-    @Param('usageId', ParseUUIDPipe) usageId: string,
-    @Body() dto: ReleaseRoomDto
-  ): Promise<RoomUsage> {
-    return this.service.releaseRoom(usageId, dto);
+  // ========== 使用记录 ==========
+
+  @Post('usage')
+  async useRoom(@Body() body: Partial<RoomUsage>) {
+    return this.roomService.useRoom(body);
   }
 
-  @Get('usage/history')
-  getUsageHistory(@Query() query: {
-    roomId?: string;
-    memberId?: string;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<RoomUsage[]> {
-    return this.service.getUsageHistory(query);
+  @Put('usage/:id/release')
+  async releaseRoom(@Param('id') id: string) {
+    return this.roomService.releaseRoom(id);
+  }
+
+  @Get('usage')
+  async getRoomUsages(@Query('roomId') roomId?: string) {
+    return this.roomService.getRoomUsages(roomId);
   }
 }

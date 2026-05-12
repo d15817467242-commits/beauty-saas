@@ -7,6 +7,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 export class ReminderController {
   constructor(private readonly reminderService: ReminderService) {}
 
+  @Get()
+  async getAllReminders() {
+    return this.reminderService.getReminderOverview();
+  }
+
   // ========== 生日提醒 ==========
 
   @Get('birthday')

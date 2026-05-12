@@ -156,12 +156,12 @@ import axios from 'axios'
 import * as echarts from 'echarts'
 
 const loading = ref(false)
-const logs = ref([])
+const logs = ref<any[]>([])
 const detailVisible = ref(false)
-const currentLog = ref(null)
+const currentLog = ref<any>(null)
 const typeChartRef = ref()
 const moduleChartRef = ref()
-const userStats = ref([])
+const userStats = ref<any[]>([])
 
 const searchForm = reactive({
   operationType: '',
@@ -188,7 +188,7 @@ const typeNames = {
   restore: '恢复',
 }
 
-const getTypeName = (type: string) => typeNames[type] || type
+const getTypeName = (type: string) => (typeNames as any)[type] || type
 
 const getTypeTag = (type: string) => {
   const map = {
@@ -200,7 +200,7 @@ const getTypeTag = (type: string) => {
     export: '',
     import: '',
   }
-  return map[type] || ''
+  return (map as any)[type] || ''
 }
 
 const formatDate = (date: string) => {
@@ -276,7 +276,7 @@ const renderTypeChart = (data: any[]) => {
       emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
       labelLine: { show: false },
       data: data.map(item => ({
-        name: typeNames[item._id] || item._id,
+        name: (typeNames as any)[item._id] || item._id,
         value: item.count
       }))
     }]

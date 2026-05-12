@@ -16,18 +16,17 @@ export class CommissionRuleService {
     return this.ruleRepository.save(rule);
   }
 
-  async findAll(isActive?: boolean, ruleType?: CommissionRuleType): Promise<CommissionRule[]> {
-    const query = this.ruleRepository.createQueryBuilder('rule');
-    
-    if (isActive !== undefined) {
-      query.where('rule.isActive = :isActive', { isActive });
+  async findAll(query: any = {}): Promise<CommissionRule[]> {
+    const qb = this.ruleRepository.createQueryBuilder('rule');
+
+    if (query.isActive !== undefined) {
+      qb.andWhere('rule.isActive = :isActive', { isActive: query.isActive });
     }
-    
-    if (ruleType) {
-      query.andWhere('rule.ruleType = :ruleType', { ruleType });
+    if (query.ruleType) {
+      qb.andWhere('rule.ruleType = :ruleType', { ruleType: query.ruleType });
     }
-    
-    return query.orderBy('rule.priority', 'DESC').addOrderBy('rule.createdAt', 'DESC').getMany();
+
+    return qb.orderBy('rule.priority', 'DESC').addOrderBy('rule.createdAt', 'DESC').getMany();
   }
 
   async findOne(id: string): Promise<CommissionRule> {

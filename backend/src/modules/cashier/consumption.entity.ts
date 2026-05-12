@@ -141,6 +141,21 @@ export class Consumption extends BaseEntity {
   @Column({ nullable: true, comment: '备注' })
   remark: string;
 
+  @Column({ name: 'merged_to', type: 'text', nullable: true, comment: '合并到订单号' })
+  mergedTo: string | null;
+
+  @Column({ name: 'cancelled_at', type: 'text', nullable: true, comment: '取消时间' })
+  cancelledAt: string | null;
+
+  @Column({ name: 'review_status', type: 'text', default: 'pending', comment: '审核状态: pending/reviewed' })
+  reviewStatus: string;
+
+  @Column({ name: 'reviewed_by', type: 'text', nullable: true, comment: '审核人ID' })
+  reviewedBy: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'text', nullable: true, comment: '审核时间' })
+  reviewedAt: string | null;
+
   @Column({ name: 'created_by', comment: '操作人ID' })
   createdBy: string;
 }

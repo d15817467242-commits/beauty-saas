@@ -25,6 +25,16 @@ export class PurchaseController {
   }
 
   // 获取单个采购单
+  @Get('pending-approval')
+  async findPendingApproval(@Query() query: any) {
+    return this.purchaseService.findPendingApproval(query);
+  }
+
+  @Get('records')
+  async findRecords(@Query() query: any) {
+    return this.purchaseService.findAll(query);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.purchaseService.findOne(id);

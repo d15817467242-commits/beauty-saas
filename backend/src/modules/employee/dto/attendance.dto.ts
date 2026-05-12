@@ -39,17 +39,17 @@ export class CheckOutDto {
 }
 
 export class AttendanceQueryDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: '员工ID不能为空' })
-  employeeId: string;
+  employeeId?: string;
 
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty({ message: '开始日期不能为空' })
-  startDate: string;
+  startDate?: string;
 
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty({ message: '结束日期不能为空' })
-  endDate: string;
+  endDate?: string;
 }
 
 export class AttendanceStatsQueryDto {

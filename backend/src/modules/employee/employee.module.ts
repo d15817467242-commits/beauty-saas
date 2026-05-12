@@ -1,108 +1,105 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-// Entities
 import { Employee } from './entities/employee.entity';
-import { ShiftTemplate } from './entities/shift-template.entity';
-import { WorkSchedule } from './entities/work-schedule.entity';
-import { AttendanceRule } from './entities/attendance-rule.entity';
+import { EmployeeRole } from './entities/employee-role.entity';
 import { Attendance } from './entities/attendance.entity';
+import { AttendanceRule } from './entities/attendance-rule.entity';
 import { CommissionRule } from './entities/commission-rule.entity';
 import { CommissionRecord } from './entities/commission-record.entity';
+import { EmployeeService as EmployeeServiceEntity } from './entities/employee-service.entity';
+import { Permission } from './entities/permission.entity';
+import { ShiftTemplate } from './entities/shift-template.entity';
 import { TrainingCourse } from './entities/training-course.entity';
 import { Training } from './entities/training.entity';
-import { Permission } from './entities/permission.entity';
-import { Role } from './entities/role.entity';
-import { EmployeeRole } from './entities/employee-role.entity';
-import { EmployeeService as EmployeeServiceEntity } from './entities/employee-service.entity';
+import { WorkSchedule } from './entities/work-schedule.entity';
+import { Role } from '../auth/role.entity';
 
-// Services
-import { EmployeeService } from './employee.service';
-import { ShiftTemplateService } from './services/shift-template.service';
-import { WorkScheduleService } from './services/work-schedule.service';
-import { AttendanceRuleService } from './services/attendance-rule.service';
-import { AttendanceService } from './services/attendance.service';
-import { CommissionRuleService } from './services/commission-rule.service';
-import { CommissionRecordService } from './services/commission-record.service';
-import { TrainingCourseService } from './services/training-course.service';
-import { TrainingService } from './services/training.service';
-import { PermissionService } from './services/permission.service';
-import { RoleService } from './services/role.service';
-import { EmployeeServiceService } from './services/employee-service.service';
-
-// Controllers
 import { EmployeeController } from './employee.controller';
-import { ShiftTemplateController } from './controllers/shift-template.controller';
-import { WorkScheduleController } from './controllers/work-schedule.controller';
-import { AttendanceRuleController } from './controllers/attendance-rule.controller';
 import { AttendanceController } from './controllers/attendance.controller';
-import { CommissionRuleController } from './controllers/commission-rule.controller';
+import { AttendanceRuleController } from './controllers/attendance-rule.controller';
 import { CommissionRecordController } from './controllers/commission-record.controller';
-import { TrainingCourseController } from './controllers/training-course.controller';
-import { TrainingController } from './controllers/training.controller';
+import { CommissionRuleController } from './controllers/commission-rule.controller';
+import { EmployeeServiceController } from './controllers/employee-service.controller';
 import { PermissionController } from './controllers/permission.controller';
 import { RoleController } from './controllers/role.controller';
-import { EmployeeServiceController } from './controllers/employee-service.controller';
+import { WorkScheduleController } from './controllers/work-schedule.controller';
+import { ShiftTemplateController } from './controllers/shift-template.controller';
+import { TrainingCourseController } from './controllers/training-course.controller';
+import { TrainingController } from './controllers/training.controller';
+
+import { EmployeeService } from './employee.service';
+import { AttendanceService } from './services/attendance.service';
+import { AttendanceRuleService } from './services/attendance-rule.service';
+import { CommissionRecordService } from './services/commission-record.service';
+import { CommissionRuleService } from './services/commission-rule.service';
+import { EmployeeServiceService } from './services/employee-service.service';
+import { PermissionService } from './services/permission.service';
+import { RoleService } from './services/role.service';
+import { WorkScheduleService } from './services/work-schedule.service';
+import { ShiftTemplateService } from './services/shift-template.service';
+import { TrainingCourseService } from './services/training-course.service';
+import { TrainingService } from './services/training.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Employee,
-      ShiftTemplate,
-      WorkSchedule,
-      AttendanceRule,
+      EmployeeRole,
       Attendance,
+      AttendanceRule,
       CommissionRule,
       CommissionRecord,
+      EmployeeServiceEntity,
+      Permission,
+      ShiftTemplate,
       TrainingCourse,
       Training,
-      Permission,
+      WorkSchedule,
       Role,
-      EmployeeRole,
-      EmployeeServiceEntity,
     ]),
   ],
   controllers: [
     EmployeeController,
-    ShiftTemplateController,
-    WorkScheduleController,
-    AttendanceRuleController,
     AttendanceController,
-    CommissionRuleController,
+    AttendanceRuleController,
     CommissionRecordController,
-    TrainingCourseController,
-    TrainingController,
+    CommissionRuleController,
+    EmployeeServiceController,
     PermissionController,
     RoleController,
-    EmployeeServiceController,
+    WorkScheduleController,
+    ShiftTemplateController,
+    TrainingCourseController,
+    TrainingController,
   ],
   providers: [
     EmployeeService,
-    ShiftTemplateService,
-    WorkScheduleService,
-    AttendanceRuleService,
     AttendanceService,
-    CommissionRuleService,
+    AttendanceRuleService,
     CommissionRecordService,
-    TrainingCourseService,
-    TrainingService,
+    CommissionRuleService,
+    EmployeeServiceService,
     PermissionService,
     RoleService,
-    EmployeeServiceService,
+    WorkScheduleService,
+    ShiftTemplateService,
+    TrainingCourseService,
+    TrainingService,
   ],
   exports: [
     EmployeeService,
-    ShiftTemplateService,
-    WorkScheduleService,
-    AttendanceRuleService,
     AttendanceService,
-    CommissionRuleService,
+    AttendanceRuleService,
     CommissionRecordService,
-    TrainingCourseService,
-    TrainingService,
+    CommissionRuleService,
+    EmployeeServiceService,
     PermissionService,
     RoleService,
-    EmployeeServiceService,
+    WorkScheduleService,
+    ShiftTemplateService,
+    TrainingCourseService,
+    TrainingService,
+    TypeOrmModule,
   ],
 })
 export class EmployeeModule {}

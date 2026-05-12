@@ -1,22 +1,27 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
   Query,
   ParseIntPipe,
 } from '@nestjs/common';
 import { ServiceService } from './service.service';
+import { ServiceCategoryService } from './service-category.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServiceCategory } from './service.entity';
+import { StoreId } from '../../common/decorators/store-id.decorator';
 
 @Controller('services')
 export class ServiceController {
-  constructor(private readonly serviceService: ServiceService) {}
+  constructor(
+    private readonly serviceService: ServiceService,
+    private readonly categoryService: ServiceCategoryService,
+  ) {}
 
   @Post()
   create(@Body() createServiceDto: CreateServiceDto) {
@@ -25,6 +30,7 @@ export class ServiceController {
 
   @Get()
   findAll(
+    @StoreId() storeId?: string,
     @Query('category') category?: ServiceCategory,
     @Query('isActive') isActive?: string,
     @Query('categoryId') categoryId?: string,
@@ -39,8 +45,12 @@ export class ServiceController {
       keyword,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 10,
+      storeId,
     );
   }
+
+  @Get('categories')
+  findCategories() { return this.categoryService.findAll(); }
 
   @Get(':id')
   findOne(@Param('id') id: string) {

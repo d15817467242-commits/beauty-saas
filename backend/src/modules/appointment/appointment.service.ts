@@ -82,24 +82,33 @@ export class AppointmentService {
     return start1 < end2 && end1 > start2;
   }
 
-  async findAll(query: QueryAppointmentDto): Promise<Appointment[]> {
-    const where: any = {};
+  async findAll(query: QueryAppointmentDto, storeId?: string): Promise<Appointment[]> {
+    const qb = this.appointmentRepository.createQueryBuilder('appointment');
 
-    if (query.date) {
-      where.appointmentDate = new Date(query.date);
-    } else if (query.startDate && query.endDate) {
-      where.appointmentDate = Between(new Date(query.startDate), new Date(query.endDate));
+    if (storeId) {
+      qb.andWhere('appointment.store_id = :storeId', { storeId });
     }
 
-    if (query.employeeId) where.employeeId = query.employeeId;
-    if (query.memberId) where.memberId = query.memberId;
-    if (query.status) where.status = query.status;
+    if (query.date) {
+      qb.andWhere('appointment.appointmentDate = :date', { date: new Date(query.date) });
+    } else if (query.startDate && query.endDate) {
+      qb.andWhere('appointment.appointmentDate BETWEEN :startDate AND :endDate', {
+        startDate: new Date(query.startDate),
+        endDate: new Date(query.endDate),
+      });
+    }
 
-    return this.appointmentRepository.find({
-      where,
-      relations: ['member', 'employee', 'service'],
-      order: { appointmentDate: 'ASC', startTime: 'ASC' },
-    });
+    if (query.employeeId) qb.andWhere('appointment.employeeId = :employeeId', { employeeId: query.employeeId });
+    if (query.memberId) qb.andWhere('appointment.memberId = :memberId', { memberId: query.memberId });
+    if (query.status) qb.andWhere('appointment.status = :status', { status: query.status });
+
+    return qb
+      .leftJoinAndSelect('appointment.member', 'member')
+      .leftJoinAndSelect('appointment.employee', 'employee')
+      .leftJoinAndSelect('appointment.service', 'service')
+      .orderBy('appointment.appointmentDate', 'ASC')
+      .addOrderBy('appointment.startTime', 'ASC')
+      .getMany();
   }
 
   async findOne(id: string): Promise<Appointment> {

@@ -2,11 +2,26 @@ import { Controller, Get, Post, Put, Body, Param, Query, Request } from '@nestjs
 import { StockCostService } from '../services/stock-cost.service';
 import { CalculateCostDto, QueryStockCostDto, UpdateProductCostDto } from '../dto/stock-cost.dto';
 
+@Controller('inventory/cost-analysis')
+export class StockCostAnalysisController {
+  constructor(private readonly stockCostService: StockCostService) {}
+
+  @Get('summary')
+  async getSummary(@Query() query: any) {
+    return this.stockCostService.getAllCostSummaries();
+  }
+}
+
 @Controller('inventory/costs')
 export class StockCostController {
   constructor(private readonly stockCostService: StockCostService) {}
 
   // 获取成本历史
+  @Get()
+  async findAll(@Query() query: any) {
+    return this.stockCostService.getAllCostSummaries();
+  }
+
   @Get('history')
   async getCostHistory(@Query() query: QueryStockCostDto) {
     return this.stockCostService.getCostHistory(query);

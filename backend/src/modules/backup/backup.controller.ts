@@ -7,6 +7,11 @@ import { CreateBackupConfigDto, QueryBackupRecordDto } from './dto/backup.dto';
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
 
+  @Get()
+  async getOverview() {
+    return this.backupService.getStats();
+  }
+
   // ========== 备份配置接口 ==========
 
   @Post('configs')

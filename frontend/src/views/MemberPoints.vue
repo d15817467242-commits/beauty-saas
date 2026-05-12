@@ -318,9 +318,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-
-const API_BASE = 'http://localhost:3000/api'
-const token = localStorage.getItem('token') || ''
+import request from '@/utils/request'
 
 const typeMap: Record<string, { label: string; type: string }> = {
   earn: { label: '获得', type: 'success' },
@@ -421,37 +419,27 @@ const exchangeAfterPoints = computed(() => {
 
 const loadOverview = async () => {
   try {
-    const res = await fetch(`${API_BASE}/points/overview`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    overview.value = await res.json()
+    overview.value = await request.get('/points/overview')
   } catch (e) {
-    console.error('加载概览失败')
+    console.error('加载概览失败', e)
   }
 }
 
 const loadRecords = async () => {
   loading.value = true
   try {
-    const params = new URLSearchParams({
-      page: currentPage.value.toString(),
-      pageSize: pageSize.value.toString()
-    })
-    if (searchMemberId.value) params.append('memberId', searchMemberId.value)
-    if (searchType.value) params.append('type', searchType.value)
+    const params: any = { page: currentPage.value, pageSize: pageSize.value }
+    if (searchMemberId.value) params.memberId = searchMemberId.value
+    if (searchType.value) params.type = searchType.value
     if (searchDateRange.value) {
-      params.append('startDate', searchDateRange.value[0].toISOString())
-      params.append('endDate', searchDateRange.value[1].toISOString())
+      params.startDate = searchDateRange.value[0].toISOString()
+      params.endDate = searchDateRange.value[1].toISOString()
     }
-    
-    const res = await fetch(`${API_BASE}/points/records?${params}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    const data = await res.json()
-    records.value = data.list || data
+    const data = await request.get('/points/records', { params })
+    records.value = data.records || data.list || data
     total.value = data.total || records.value.length
   } catch (e) {
-    ElMessage.error('加载流水失败')
+    console.error('加载流水失败', e)
   } finally {
     loading.value = false
   }
@@ -459,27 +447,20 @@ const loadRecords = async () => {
 
 const loadExchangeRules = async () => {
   try {
-    const res = await fetch(`${API_BASE}/points/exchange-rules`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    exchangeRules.value = await res.json()
+    const data = await request.get('/points/exchange-rules')
+    exchangeRules.value = Array.isArray(data) ? data : (data.records || [])
   } catch (e) {
-    console.error('加载兑换规则失败')
+    console.error('加载兑换规则失败', e)
   }
 }
 
 const searchMembers = async (query: string) => {
-  if (!query) {
-    memberOptions.value = []
-    return
-  }
+  if (!query) { memberOptions.value = []; return }
   try {
-    const res = await fetch(`${API_BASE}/members?keyword=${encodeURIComponent(query)}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    memberOptions.value = await res.json()
+    const data = await request.get('/members', { params: { keyword: query } })
+    memberOptions.value = Array.isArray(data) ? data : (data.data || data.items || [])
   } catch (e) {
-    console.error('搜索会员失败')
+    console.error('搜索会员失败', e)
   }
 }
 
@@ -506,36 +487,16 @@ const submitAdjust = async () => {
   if (!adjustFormRef.value) return
   await adjustFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
     adjustSubmitting.value = true
     try {
-      const points = adjustForm.value.adjustType === 'add' 
-        ? adjustForm.value.points 
-        : -adjustForm.value.points
-      
-      const res = await fetch(`${API_BASE}/points/adjust`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          memberId: adjustForm.value.memberId,
-          points,
-          reason: adjustForm.value.reason
-        })
-      })
-      if (res.ok) {
-        ElMessage.success('调整成功')
-        adjustDialogVisible.value = false
-        loadOverview()
-        loadRecords()
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '调整失败')
-      }
+      const points = adjustForm.value.adjustType === 'add' ? adjustForm.value.points : -adjustForm.value.points
+      await request.post('/points/adjust', { memberId: adjustForm.value.memberId, points, reason: adjustForm.value.reason })
+      ElMessage.success('调整成功')
+      adjustDialogVisible.value = false
+      loadOverview()
+      loadRecords()
     } catch (e) {
-      ElMessage.error('网络错误')
+      console.error(e)
     } finally {
       adjustSubmitting.value = false
     }
@@ -559,36 +520,16 @@ const submitExchange = async () => {
   if (!exchangeFormRef.value) return
   await exchangeFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
-    if (exchangeAfterPoints.value < 0) {
-      ElMessage.warning('积分不足')
-      return
-    }
-    
+    if (exchangeAfterPoints.value < 0) { ElMessage.warning('积分不足'); return }
     exchangeSubmitting.value = true
     try {
-      const res = await fetch(`${API_BASE}/points/exchange`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          memberId: exchangeForm.value.memberId,
-          ruleId: exchangeForm.value.ruleId
-        })
-      })
-      if (res.ok) {
-        ElMessage.success('兑换成功')
-        exchangeDialogVisible.value = false
-        loadOverview()
-        loadRecords()
-      } else {
-        const err = await res.json()
-        ElMessage.error(err.message || '兑换失败')
-      }
+      await request.post('/points/exchange', { memberId: exchangeForm.value.memberId, ruleId: exchangeForm.value.ruleId })
+      ElMessage.success('兑换成功')
+      exchangeDialogVisible.value = false
+      loadOverview()
+      loadRecords()
     } catch (e) {
-      ElMessage.error('网络错误')
+      console.error(e)
     } finally {
       exchangeSubmitting.value = false
     }
@@ -597,13 +538,11 @@ const submitExchange = async () => {
 
 const showRuleDialog = async () => {
   try {
-    const res = await fetch(`${API_BASE}/points/exchange-rules`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    allRules.value = await res.json()
+    const data = await request.get('/points/exchange-rules')
+    allRules.value = Array.isArray(data) ? data : (data.records || [])
     ruleDialogVisible.value = true
   } catch (e) {
-    ElMessage.error('加载规则失败')
+    console.error(e)
   }
 }
 
@@ -627,28 +566,17 @@ const showRuleEditDialog = (row?: any) => {
 const saveRule = async () => {
   ruleSubmitting.value = true
   try {
-    const url = isEditRule.value 
-      ? `${API_BASE}/points/exchange-rules/${editRuleId.value}` 
-      : `${API_BASE}/points/exchange-rules`
-    const method = isEditRule.value ? 'PUT' : 'POST'
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(ruleForm.value)
-    })
-    if (res.ok) {
-      ElMessage.success('保存成功')
-      ruleEditDialogVisible.value = false
-      showRuleDialog()
-      loadExchangeRules()
+    if (isEditRule.value) {
+      await request.put(`/points/exchange-rules/${editRuleId.value}`, ruleForm.value)
     } else {
-      ElMessage.error('保存失败')
+      await request.post('/points/exchange-rules', ruleForm.value)
     }
+    ElMessage.success('保存成功')
+    ruleEditDialogVisible.value = false
+    showRuleDialog()
+    loadExchangeRules()
   } catch (e) {
-    ElMessage.error('网络错误')
+    console.error(e)
   } finally {
     ruleSubmitting.value = false
   }
@@ -656,27 +584,17 @@ const saveRule = async () => {
 
 const toggleRuleStatus = async (row: any) => {
   try {
-    await fetch(`${API_BASE}/points/exchange-rules/${row.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ isActive: row.isActive })
-    })
+    await request.put(`/points/exchange-rules/${row.id}`, { isActive: row.isActive })
     loadExchangeRules()
   } catch (e) {
-    ElMessage.error('更新失败')
+    console.error(e)
   }
 }
 
 const deleteRule = async (row: any) => {
   try {
     await ElMessageBox.confirm('确定删除该规则？', '提示', { type: 'warning' })
-    await fetch(`${API_BASE}/points/exchange-rules/${row.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await request.delete(`/points/exchange-rules/${row.id}`)
     showRuleDialog()
     loadExchangeRules()
     ElMessage.success('删除成功')
