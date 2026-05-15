@@ -5,22 +5,26 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { EmployeeStatus } from './entities/employee.entity';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StoreId } from '../../common/decorators/store-id.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('employees')
 export class EmployeeController {
   constructor(private readonly employeeService: EmployeeService) {}
 
   @Post()
+  @Roles('admin', 'manager')
   create(@Body() createEmployeeDto: CreateEmployeeDto) {
     return this.employeeService.create(createEmployeeDto);
   }
 
   @Get()
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findAll(@StoreId() storeId?: string, @Query('status') status?: EmployeeStatus) {
     return this.employeeService.findAll(storeId || undefined, status);
   }
 
   @Get('detail/:id')
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findOne(@Param('id') id: string) {
     return this.employeeService.findOne(id);
   }

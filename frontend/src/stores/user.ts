@@ -43,8 +43,9 @@ export const useUserStore = defineStore('user', () => {
   const canManageServices = computed(() => ['superadmin', 'admin', 'manager'].includes(role.value))
   const canCashier = computed(() => ['superadmin', 'admin', 'manager', 'cashier'].includes(role.value))
   const canViewReport = computed(() => ['superadmin', 'admin', 'manager'].includes(role.value))
-  const canManageInventory = computed(() => ['superadmin', 'admin'].includes(role.value))
-  const canSmsMarketing = computed(() => ['superadmin', 'admin'].includes(role.value))
+  const canReviewOrder = computed(() => ['superadmin', 'admin', 'manager'].includes(role.value))
+  const canManageInventory = computed(() => ['superadmin', 'admin', 'manager'].includes(role.value))
+  const canSmsMarketing = computed(() => ['superadmin', 'admin', 'manager'].includes(role.value))
 
   // 角色显示
   const roleLabel = computed(() => {
@@ -73,9 +74,6 @@ export const useUserStore = defineStore('user', () => {
     const map: Record<string, string> = {
       superadmin: '服务商 - 平台管理权限',
       admin: '管理员 - 全部业务权限',
-      manager: '店长 - 业务管理权限（不可删除）',
-      cashier: '收银员 - 收银和查看权限',
-      employee: '员工 - 仅查看权限',
     }
     return map[role.value] || '未知角色'
   })
@@ -132,7 +130,7 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn, role, isSuperAdmin, isAdmin, isManager, isCashier, isEmployee,
     canCreate, canEdit, canDelete,
     canManageEmployees, canManageServices, canCashier, canViewReport,
-    canManageInventory, canSmsMarketing,
+    canReviewOrder, canManageInventory, canSmsMarketing,
     roleLabel, roleTagColor, roleHint,
     setToken, setUserInfo, switchStore, setStoreList, logout,
   }

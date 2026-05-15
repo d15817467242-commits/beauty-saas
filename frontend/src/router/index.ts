@@ -61,7 +61,7 @@ const routes: RouteRecordRaw[] = [
         path: 'member',
         name: 'Member',
         component: () => import('../views/Member.vue'),
-        meta: { title: '会员管理', roles: ['admin', 'manager', 'cashier', 'employee'] },
+        meta: { title: '会员管理', roles: ['admin', 'manager', 'cashier'] },
       },
       {
         path: 'employees',
@@ -85,7 +85,7 @@ const routes: RouteRecordRaw[] = [
         path: 'schedule',
         name: 'Schedule',
         component: () => import('../views/Schedule.vue'),
-        meta: { title: '排班管理', roles: ['admin', 'manager'] },
+        meta: { title: '排班管理', roles: ['admin', 'manager', 'employee'] },
       },
       {
         path: 'report',
@@ -97,19 +97,19 @@ const routes: RouteRecordRaw[] = [
         path: 'inventory',
         name: 'Inventory',
         component: () => import('../views/Inventory.vue'),
-        meta: { title: '库存管理', roles: ['admin'] },
+        meta: { title: '库存管理', roles: ['admin', 'manager'] },
       },
       {
         path: 'sms-marketing',
         name: 'SmsMarketing',
         component: () => import('../views/SmsMarketing.vue'),
-        meta: { title: '短信营销', roles: ['admin'] },
+        meta: { title: '短信营销', roles: ['admin', 'manager'] },
       },
       {
         path: 'commission',
         name: 'Commission',
         component: () => import('../views/Commission.vue'),
-        meta: { title: '提成管理', roles: ['admin', 'manager'] },
+        meta: { title: '提成管理', roles: ['admin', 'manager', 'employee'] },
       },
     ],
   },
@@ -149,7 +149,7 @@ router.beforeEach((to, _from, next) => {
   const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
   const requiredRoles = to.meta.roles as string[] | undefined
   if (requiredRoles && requiredRoles.length > 0) {
-    const userRole = userInfo.role || 'employee'
+    const userRole = userInfo.role || 'admin'
     if (!requiredRoles.includes(userRole)) {
       // 无权限：跳转到对应角色的首页
       if (userInfo.role === 'superadmin') {

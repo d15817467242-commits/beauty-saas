@@ -58,7 +58,15 @@
           <el-input v-model="form.phone" placeholder="请输入手机号" />
         </el-form-item>
         <el-form-item label="职位">
-          <el-input v-model="form.position" placeholder="如：发型师" />
+          <el-select v-model="form.position" placeholder="请选择职位" style="width: 100%" filterable allow-create>
+            <el-option label="店长" value="店长" />
+            <el-option label="收银员" value="收银员" />
+            <el-option label="发型师" value="发型师" />
+            <el-option label="美容师" value="美容师" />
+            <el-option label="技师" value="技师" />
+            <el-option label="顾问" value="顾问" />
+            <el-option label="助理" value="助理" />
+          </el-select>
         </el-form-item>
         <el-form-item label="入职日期">
           <el-date-picker v-model="form.hireDate" type="date" placeholder="选择日期" style="width: 100%" />
@@ -67,6 +75,25 @@
           <el-input-number v-model="form.baseCommissionRate" :min="0" :max="100" :precision="1" />
           <span style="margin-left: 10px">%</span>
         </el-form-item>
+        <el-divider v-if="!isEdit && userStore.canCreate">登录帐号</el-divider>
+        <el-form-item label="创建帐号" v-if="!isEdit && userStore.canCreate">
+          <el-switch v-model="form.createAccount" active-text="是" inactive-text="否" />
+        </el-form-item>
+        <template v-if="form.createAccount && !isEdit">
+          <el-form-item label="登录角色" required>
+            <el-select v-model="form.accountRole" placeholder="选择登录角色" style="width: 100%">
+              <el-option label="店长（管理运营）" value="manager" />
+              <el-option label="收银员（收银开单）" value="cashier" />
+              <el-option label="员工（查看业绩）" value="employee" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="登录用户名" required>
+            <el-input v-model="form.accountUsername" placeholder="用于登录的用户名" />
+          </el-form-item>
+          <el-form-item label="初始密码" required>
+            <el-input v-model="form.accountPassword" type="password" placeholder="默认: 123456" show-password />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -150,7 +177,11 @@ const form = ref({
   phone: '',
   position: '',
   hireDate: '',
-  baseCommissionRate: 0
+  baseCommissionRate: 0,
+  createAccount: false,
+  accountRole: '',
+  accountUsername: '',
+  accountPassword: '123456',
 })
 
 const commissionForm = ref({
@@ -169,7 +200,11 @@ const resetForm = () => {
     phone: '',
     position: '',
     hireDate: '',
-    baseCommissionRate: 0
+    baseCommissionRate: 0,
+    createAccount: false,
+    accountRole: '',
+    accountUsername: '',
+    accountPassword: '123456',
   }
 }
 
@@ -207,7 +242,11 @@ const handleEdit = (row: any) => {
     phone: row.phone || '',
     position: row.position || '',
     hireDate: row.hireDate || '',
-    baseCommissionRate: row.baseCommissionRate || 0
+    baseCommissionRate: row.baseCommissionRate || 0,
+    createAccount: false,
+    accountRole: '',
+    accountUsername: '',
+    accountPassword: '123456',
   }
   dialogVisible.value = true
 }
@@ -246,6 +285,10 @@ const handleSubmit = async () => {
     ElMessage.warning('请填写姓名和工号')
     return
   }
+  if (form.value.createAccount && (!form.value.accountRole || !form.value.accountUsername)) {
+    ElMessage.warning('请填写登录角色和用户名')
+    return
+  }
   submitting.value = true
   try {
     if (isEdit.value) {
@@ -253,7 +296,33 @@ const handleSubmit = async () => {
       ElMessage.success('修改成功')
     } else {
       await request.post('/employees', form.value)
-      ElMessage.success('添加成功')
+      // 如果勾选了创建帐号，同步创建登录帐号
+      if (form.value.createAccount) {
+        try {
+          await request.post('/users', {
+            username: form.value.accountUsername,
+            password: form.value.accountPassword || '123456',
+            name: form.value.name,
+            phone: form.value.phone,
+            role: form.value.accountRole,
+            storeId: userStore.storeId,
+            isActive: '1',
+          })
+          // 同时关联门店
+          const newUser = await request.get('/users')
+          const created = newUser.find(u => u.username === form.value.accountUsername)
+          if (created) {
+            await request.patch(`/users/${created.id}/stores`, {
+              storeIds: [userStore.storeId],
+            })
+          }
+          ElMessage.success('员工和登录帐号已创建')
+        } catch (e: any) {
+          ElMessage.warning('员工已创建，但登录帐号创建失败：' + (e?.response?.data?.message || '用户名可能已存在'))
+        }
+      } else {
+        ElMessage.success('添加成功')
+      }
     }
     dialogVisible.value = false
     loadEmployees()

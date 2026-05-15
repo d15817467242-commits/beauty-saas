@@ -7,9 +7,6 @@ import { Role } from '../auth/role.entity';
 export enum UserRole {
   SUPERADMIN = 'superadmin', // 服务商（丁老大）
   ADMIN = 'admin',           // 连锁管理员/单店管理员
-  MANAGER = 'manager',       // 店长
-  EMPLOYEE = 'employee',     // 员工
-  CASHIER = 'cashier',       // 收银员
 }
 
 @Entity('users')
@@ -31,7 +28,7 @@ export class User extends BaseEntity {
   avatar: string;
 
   @Column({ type: 'text',
-    default: UserRole.EMPLOYEE,
+    default: UserRole.ADMIN,
     comment: '角色'})
   role: UserRole;
 

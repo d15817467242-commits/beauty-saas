@@ -19,13 +19,14 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(username: string, phone: string, password: string): Promise<any> {
-    // 优先用 username 精确匹配，避免多个帐号共享手机号时匹配错误
+  async validateUser(username: string, password: string, phone?: string): Promise<any> {
+    // 优先用 username 精确匹配
     let user = await this.userRepository.findOne({ where: { username } });
     if (!user && phone) {
       user = await this.userRepository.findOne({ where: { phone } });
     }
     if (!user) throw new UnauthorizedException('用户不存在');
+    // phone可选，填了才校验
     if (phone && user.phone !== phone) throw new UnauthorizedException('手机号不匹配');
 
     // 支持 bcrypt 加密密码和明文密码
@@ -49,8 +50,8 @@ export class AuthService {
       // 服务商：看所有门店
       const stores = await this.storeRepository.find();
       storeList = stores.map(s => ({ id: s.id, name: s.name }));
-    } else if (user.role === UserRole.ADMIN) {
-      // 连锁管理员：看自己关联的门店
+    } else {
+      // 管理员：看自己关联的门店
       const userStores = await this.userStoreRepository.find({ where: { userId: user.id } });
       if (userStores.length > 0) {
         const storeIds = userStores.map(us => us.storeId);
@@ -58,14 +59,6 @@ export class AuthService {
         storeList = stores.map(s => ({ id: s.id, name: s.name }));
         storeId = storeList[0]?.id || null;
         storeName = storeList[0]?.name || null;
-      }
-    } else {
-      // 店长/收银员/员工：只看绑定的门店
-      if (user.storeId) {
-        const store = await this.storeRepository.findOne({ where: { id: user.storeId } });
-        storeName = store?.name || null;
-        storeId = user.storeId;
-        storeList = storeId ? [{ id: storeId, name: storeName || '' }] : [];
       }
     }
 
@@ -100,9 +93,9 @@ export class AuthService {
     const permissionMap: Record<string, string[]> = {
       superadmin: ['all'],
       admin: ['store:manage', 'member:manage', 'employee:manage', 'cashier:manage', 'service:manage', 'appointment:manage', 'report:view', 'inventory:manage', 'sms:manage'],
-      manager: ['store:view', 'member:manage', 'employee:view', 'cashier:manage', 'service:view', 'appointment:manage', 'report:view', 'inventory:view'],
-      cashier: ['cashier:manage', 'member:view', 'appointment:view'],
-      employee: ['member:view', 'appointment:view', 'service:view'],
+      manager: ['member:manage', 'employee:view', 'cashier:manage', 'service:view', 'appointment:manage', 'report:view', 'order:review', 'schedule:view'],
+      cashier: ['member:view', 'member:add', 'cashier:manage', 'appointment:view', 'appointment:add'],
+      employee: ['appointment:view', 'service:view', 'commission:view', 'schedule:view'],
     };
     return permissionMap[role] || [];
   }

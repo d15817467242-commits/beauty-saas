@@ -4,6 +4,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto, CancelAppointmentDto, Query
 import { CreateScheduleDto, UpdateScheduleDto, BatchCreateScheduleDto, QueryScheduleDto } from './dto/schedule.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { StoreId } from '../../common/decorators/store-id.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard)
@@ -13,48 +14,56 @@ export class AppointmentController {
   // ========== 预约管理 ==========
 
   @Post()
-  create(@Body() dto: CreateAppointmentDto, @Request() req: any) {
-    return this.appointmentService.create(dto, req.user.userId);
+  @Roles('admin', 'manager', 'cashier')
+  create(@Body() dto: CreateAppointmentDto, @Request() req: any, @StoreId() storeId?: string) {
+    return this.appointmentService.create(dto, req.user.userId, storeId);
   }
 
   @Get()
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findAll(@Query() query: QueryAppointmentDto, @StoreId() storeId?: string) {
     return this.appointmentService.findAll(query, storeId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.appointmentService.findOne(id);
+  @Roles('admin', 'manager', 'cashier', 'employee')
+  findOne(@Param('id') id: string, @StoreId() storeId?: string) {
+    return this.appointmentService.findOne(id, storeId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto) {
-    return this.appointmentService.update(id, dto);
+  @Roles('admin', 'manager')
+  update(@Param('id') id: string, @Body() dto: UpdateAppointmentDto, @StoreId() storeId?: string) {
+    return this.appointmentService.update(id, dto, storeId);
   }
 
   @Post(':id/confirm')
-  confirm(@Param('id') id: string) {
-    return this.appointmentService.confirm(id);
+  @Roles('admin', 'manager')
+  confirm(@Param('id') id: string, @StoreId() storeId?: string) {
+    return this.appointmentService.confirm(id, storeId);
   }
 
   @Post(':id/complete')
-  complete(@Param('id') id: string) {
-    return this.appointmentService.complete(id);
+  @Roles('admin', 'manager')
+  complete(@Param('id') id: string, @StoreId() storeId?: string) {
+    return this.appointmentService.complete(id, storeId);
   }
 
   @Post(':id/no-show')
-  noShow(@Param('id') id: string) {
-    return this.appointmentService.noShow(id);
+  @Roles('admin', 'manager')
+  noShow(@Param('id') id: string, @StoreId() storeId?: string) {
+    return this.appointmentService.noShow(id, storeId);
   }
 
   @Post(':id/cancel')
-  cancel(@Param('id') id: string, @Body() dto: CancelAppointmentDto) {
-    return this.appointmentService.cancel(id, dto);
+  cancel(@Param('id') id: string, @Body() dto: CancelAppointmentDto, @StoreId() storeId?: string) {
+    return this.appointmentService.cancel(id, dto, storeId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.appointmentService.remove(id);
+  @Roles('admin')
+  remove(@Param('id') id: string, @StoreId() storeId?: string) {
+    return this.appointmentService.remove(id, storeId);
   }
 
   // ========== 可用时间段 ==========
@@ -70,6 +79,7 @@ export class AppointmentController {
   // ========== 排班管理 ==========
 
   @Post('schedules')
+  @Roles('admin', 'manager')
   createSchedule(@Body() dto: CreateScheduleDto, @Request() req: any) {
     return this.appointmentService.createSchedule(dto, req.user.userId);
   }
@@ -80,6 +90,7 @@ export class AppointmentController {
   }
 
   @Get('schedules')
+  @Roles('admin', 'manager', 'employee')
   findSchedules(@Query() query: QueryScheduleDto) {
     return this.appointmentService.findSchedules(query);
   }

@@ -15,6 +15,7 @@ import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { ServiceCategory } from './service.entity';
 import { StoreId } from '../../common/decorators/store-id.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('services')
 export class ServiceController {
@@ -24,11 +25,13 @@ export class ServiceController {
   ) {}
 
   @Post()
-  create(@Body() createServiceDto: CreateServiceDto) {
-    return this.serviceService.create(createServiceDto);
+  @Roles('admin', 'manager')
+  create(@Body() createServiceDto: CreateServiceDto, @StoreId() storeId?: string) {
+    return this.serviceService.create(createServiceDto, storeId);
   }
 
   @Get()
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findAll(
     @StoreId() storeId?: string,
     @Query('category') category?: ServiceCategory,
@@ -50,29 +53,35 @@ export class ServiceController {
   }
 
   @Get('categories')
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findCategories() { return this.categoryService.findAll(); }
 
   @Get(':id')
+  @Roles('admin', 'manager', 'cashier', 'employee')
   findOne(@Param('id') id: string) {
     return this.serviceService.findOne(id);
   }
 
   @Get('code/:code')
+  @Roles('admin', 'manager', 'cashier')
   findByCode(@Param('code') code: string) {
     return this.serviceService.findByCode(code);
   }
 
   @Patch(':id')
+  @Roles('admin', 'manager')
   update(@Param('id') id: string, @Body() updateServiceDto: UpdateServiceDto) {
     return this.serviceService.update(id, updateServiceDto);
   }
 
   @Delete(':id')
+  @Roles('admin')
   remove(@Param('id') id: string) {
     return this.serviceService.remove(id);
   }
 
   @Patch(':id/sort')
+  @Roles('admin', 'manager')
   updateSort(
     @Param('id') id: string,
     @Body('sort', ParseIntPipe) sort: number,
@@ -81,6 +90,7 @@ export class ServiceController {
   }
 
   @Patch(':id/toggle-active')
+  @Roles('admin', 'manager')
   toggleActive(@Param('id') id: string) {
     return this.serviceService.toggleActive(id);
   }

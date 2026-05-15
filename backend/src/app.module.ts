@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { Store } from './modules/store/store.entity';
 
 // 模块
 import { AuthModule } from './modules/auth/auth.module';
@@ -49,6 +50,10 @@ import { LicenseModule } from './modules/license/license.module';
 
 // 守卫
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { StoreStatusGuard } from './common/guards/store-status.guard';
+import { StoreAccessGuard } from './common/guards/store-access.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { UserStore } from './modules/user/entities/user-store.entity';
 
 @Module({
   imports: [
@@ -124,6 +129,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     BackupModule,
 
     // 系统配置增强模块
+    TypeOrmModule.forFeature([Store, UserStore]),
     StoreModule,
     PaymentConfigModule,
     PrintTemplateModule,
@@ -149,6 +155,18 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: StoreStatusGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: StoreAccessGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })
